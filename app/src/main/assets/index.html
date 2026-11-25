@@ -147,6 +147,17 @@ button{cursor:pointer;border:0;background:none;padding:0}
 .sheet .opt svg{width:22px;height:22px;fill:currentColor;opacity:.8}
 .sheet .opt.red{color:#e5484d}
 .row2{display:flex;gap:8px}
+.tools{display:flex;gap:8px;align-items:center;margin:0 0 10px;flex-wrap:wrap}.tools small{color:var(--mut);font-size:12px}
+.tools h4{flex:1;margin:0;font-size:17px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbtn{min-height:36px;padding:0 12px;border-radius:99px;font-size:12.5px;font-weight:700;background:var(--soft);border:1px solid var(--line);color:var(--ink);display:inline-flex;align-items:center;gap:6px}
+.tbtn svg{width:17px;height:17px;fill:currentColor}.tbtn.acc{background:var(--acc);color:var(--on);border-color:transparent}
+.ck{width:28px;height:28px;margin-right:6px;border-radius:50%;border:2px solid color-mix(in srgb,var(--ink) 30%,transparent);flex:none;display:grid;place-items:center;cursor:pointer}
+.ck.on{background:var(--acc);border-color:var(--acc)}.ck.on::after{content:"";width:11px;height:6px;border-left:2.5px solid var(--on);border-bottom:2.5px solid var(--on);transform:translateY(-1px) rotate(-45deg)}
+.tr.sel{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 14%,var(--glass))}
+.tr .art svg{width:22px;height:22px;fill:#fff}
+.selbar{position:fixed;z-index:6;left:12px;right:12px;max-width:496px;margin:0 auto;display:flex;gap:6px;align-items:center;padding:8px 8px 8px 16px;border-radius:20px;background:var(--acc);color:var(--on);box-shadow:0 14px 34px -10px var(--acc);font-weight:800;font-size:14px;animation:up .2s ease}
+.selbar span{flex:1;white-space:nowrap}.selbar button{min-height:40px;padding:0 10px;border-radius:13px;background:rgba(255,255,255,.22);color:inherit;font-weight:700;font-size:12.5px;display:inline-flex;align-items:center;gap:5px}.selbar svg{width:17px;height:17px;fill:currentColor}
+.sheet .opt small{font-weight:600}
 .fld{display:block;margin:0 4px 10px}.fld span{display:block;font-size:12px;color:var(--mut);margin-bottom:4px;font-weight:600}
 .fld input{width:100%;min-height:46px;border-radius:12px;border:1px solid var(--line);background:var(--soft);padding:0 12px;font-size:16px;color:var(--ink)}
 .chk{display:flex;gap:10px;align-items:center;margin:4px 4px 12px;font-size:14px}.chk input{width:20px;height:20px;accent-color:var(--acc)}
@@ -199,7 +210,8 @@ button{cursor:pointer;border:0;background:none;padding:0}
  <label class="sbox glass"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><input id="q" type="search" placeholder="Cari judul atau penyanyi" aria-label="Cari lagu"></label>
  <div id="hero"></div>
  <div id="jobs" class="list" style="margin-bottom:12px"></div>
- <div class="chips" id="subLib"><button data-s="lokal" class="on">Di HP ini<em id="nL"></em></button><button data-s="cloud">Cloud<em id="nC"></em></button><button data-s="antrian">Antrian<em id="nQ"></em></button></div>
+ <div class="chips" id="subLib"><button data-s="lokal" class="on">Di HP ini<em id="nL"></em></button><button data-s="cloud">Cloud<em id="nC"></em></button><button data-s="playlist">Daftar putar<em id="nP"></em></button><button data-s="antrian">Antrian<em id="nQ"></em></button></div>
+ <div class="tools" id="tools" hidden></div>
  <div id="cloudState" class="note" hidden></div>
  <ul class="list" id="list"></ul>
  <p class="note" id="libNote"></p>
@@ -231,6 +243,7 @@ button{cursor:pointer;border:0;background:none;padding:0}
 
 <div class="modal" id="modal"><div class="sheet"><p id="mText"></p><div class="row2" style="margin:0"><button class="btn" id="mYes">Ya</button><button class="btn ghost" id="mNo">Batal</button></div></div></div>
 <div class="modal" id="act"><div class="sheet" id="actSheet"></div></div>
+<div class="selbar" id="selbar" hidden></div>
 <div class="toast" id="toast"></div>
 <audio id="au" preload="metadata"></audio>
 
@@ -343,7 +356,7 @@ document.querySelector('.nav').onclick=e=>{const b=e.target.closest('button');if
 document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b)go(b.dataset.go)});
 addEventListener('hashchange',()=>go(location.hash.slice(1)));
 let libTab='lokal';
-function setLib(s){libTab=s;$('#subLib').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.s===s));$('#cloudState').hidden=s!=='cloud';renderLists()}
+function setLib(s){if(s!==libTab){selMode=false;sel.clear()}if(s==='playlist'&&libTab==='playlist')openPl=null;libTab=s;$('#subLib').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.s===s));$('#cloudState').hidden=s!=='cloud';renderLists()}
 $('#subLib').onclick=e=>{const b=e.target.closest('button');if(b)setLib(b.dataset.s)};
 $('#subTema').onclick=e=>{const b=e.target.closest('button');if(!b)return;temaFilter=b.dataset.s;
  $('#subTema').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));renderThemes()};
@@ -465,43 +478,90 @@ const svg=p=>`<svg viewBox="0 0 24 24">${p}</svg>`;
 IC.more='<path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>';
 IC.play='<path d="M8 5v14l11-7z"/>';IC.shuf='<path d="M10.6 9.2 5.4 4 4 5.4l5.2 5.2 1.4-1.4zM14.5 4l2 2L4 18.6 5.4 20 17.9 7.5l2 2V4h-5.4zm.3 9.4-1.4 1.4 3.1 3.1-2 2.1H20v-5.5l-2 2-3.2-3.1z"/>';
 IC.music='<path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/>';
-function row(t,i,kind){const c=cur(),isCur=c&&c.id===t.id,inCloud=kind==='l'&&inCloudOf(t);
+let playlists=ls.get('pl',[]);if(!Array.isArray(playlists))playlists=[];const savePl=()=>ls.set('pl',playlists);
+let openPl=null,selMode=false;const sel=new Set();
+const byId=id=>local.find(t=>t.id===id)||cloud.find(t=>t.id===id);
+const plTracks=p=>p.ids.map(byId).filter(Boolean);
+const IC_Q='<path d="M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v8l6-4z"/>',IC_PL='<path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18A3 3 0 1 0 19 17V8h3V6h-5z"/>',IC_BACK='<path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>';
+function row(t,i,kind){const c=cur(),isCur=c&&c.id===t.id,inCloud=kind==='l'&&inCloudOf(t),sm=selMode&&(kind==='l'||kind==='c'),on=sm&&sel.has(t.id);
  const sub=kind==='q'?(i===qi?'Sedang diputar':'Antrian ke-'+(i+1)):(t.artist+(t.dur?' · '+fmt(t.dur):'')+(uploading[t.id]?' · mengunggah…':inCloud?' · di cloud':''));
- return `<li class="tr${isCur?' cur':''}" data-k="${kind}" data-i="${i}"><div class="art" style="background:${artBg(t.title+t.artist)}">${esc((t.title[0]||'?').toUpperCase())}</div><div class="meta" data-a="play"><b>${esc(t.title)}</b><span>${esc(sub)}</span></div><button class="pc" data-a="play" aria-label="Putar">${svg(isCur&&!au.paused?'<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>':IC.play)}</button>${kind!=='q'?`<button class="ib" data-a="more" aria-label="Pilihan lain">${svg(IC.more)}</button>`:''}</li>`}
+ const right=sm?`<span class="ck${on?' on':''}" data-a="sel" role="checkbox" aria-checked="${on}"></span>`:`<button class="pc" data-a="play" aria-label="Putar">${svg(isCur&&!au.paused?'<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>':IC.play)}</button>${kind!=='q'?`<button class="ib" data-a="more" aria-label="Pilihan lain">${svg(IC.more)}</button>`:''}`;
+ return `<li class="tr${isCur&&!sm?' cur':''}${on?' sel':''}" data-k="${kind}" data-i="${i}"><div class="art" style="background:${artBg(t.title+t.artist)}">${esc((t.title[0]||'?').toUpperCase())}</div><div class="meta" data-a="${sm?'sel':'play'}"><b>${esc(t.title)}</b><span>${esc(sub)}</span></div>${right}</li>`}
 const filt=(l,q)=>{q=q.trim().toLowerCase();return q?l.filter(t=>(t.title+' '+t.artist).toLowerCase().includes(q)):l};
-let viewL=[],viewC=[],viewQ=[];
-const curList=()=>libTab==='lokal'?viewL:libTab==='cloud'?viewC:viewQ;
+let viewL=[],viewC=[],viewQ=[],viewP=[];
+const curList=()=>libTab==='lokal'?viewL:libTab==='cloud'?viewC:libTab==='playlist'?viewP:viewQ;
 function greet(){const h=new Date().getHours();return h<11?'Selamat pagi':h<15?'Selamat siang':h<18?'Selamat sore':'Selamat malam'}
+function renderTools(kind){const el=$('#tools');let html='';
+ if(kind==='l'||kind==='c'){const n=(kind==='l'?viewL:viewC).length;if(n)html=selMode?`<button class="tbtn acc" data-t="done">Selesai</button><button class="tbtn" data-t="all">${(kind==='l'?viewL:viewC).every(t=>sel.has(t.id))?'Batal pilih semua':'Pilih semua'}</button><small>${sel.size} dipilih</small>`:`<button class="tbtn" data-t="sel">${svg('<path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-9 14-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>')}Pilih lagu</button><small>atau tekan lama sebuah lagu</small>`}
+ else if(kind==='p'){const p=playlists.find(x=>x.id===openPl);html=p?`<button class="tbtn" data-t="back" aria-label="Kembali">${svg(IC_BACK)}</button><h4>${esc(p.name)}</h4><button class="tbtn acc" data-t="plplay">${svg(IC.play)}Putar</button><button class="tbtn" data-t="plmore" aria-label="Pilihan">${svg(IC.more)}</button>`:`<button class="tbtn acc" data-t="new">${svg('<path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/>')}Daftar putar baru</button>`}
+ el.innerHTML=html;el.hidden=!html;
+ const sb=$('#selbar');sb.hidden=!(selMode&&sel.size);if(!sb.hidden){sb.style.bottom=($('.dock').offsetHeight+18)+'px';sb.innerHTML=`<span>${sel.size} lagu dipilih</span><button data-s="pl">${svg(IC_PL)}Ke daftar putar</button><button data-s="q">${svg(IC_Q)}Antrian</button>`}}
 function renderLists(){
  const q=$('#q').value;viewL=filt(local,q);viewC=filt(cloud,q);viewQ=queue;
- $('#nL').textContent=local.length;$('#nC').textContent=cloud.length;$('#nQ').textContent=queue.length;$('#greet').textContent=greet();
- const kind=libTab==='lokal'?'l':libTab==='cloud'?'c':'q',list=curList(),all=kind==='l'?local:kind==='c'?cloud:queue;
- // hero
- const hero=$('#hero');
+ const openP=playlists.find(x=>x.id===openPl);if(!openP)openPl=null;viewP=openP?filt(plTracks(openP),q):[];
+ $('#nL').textContent=local.length;$('#nC').textContent=cloud.length;$('#nQ').textContent=queue.length;$('#nP').textContent=playlists.length;$('#greet').textContent=greet();
+ const kind=libTab==='lokal'?'l':libTab==='cloud'?'c':libTab==='playlist'?'p':'q',list=curList(),all=kind==='l'?local:kind==='c'?cloud:kind==='p'?(openP?plTracks(openP):[]):queue;
+ const hero=$('#hero');hero.hidden=selMode||(kind==='p'&&!!openP);
  if(!local.length&&!cloud.length&&NATIVE){hero.className='hero blank';const ok=NATIVE.hasPermission();hero.innerHTML=`<div><small>Mulai</small><h3>${ok?'Belum ada lagu':'Izinkan akses musik'}</h3><p style="color:var(--mut);margin-top:6px">${ok?'Tidak ada lagu di HP yang terbaca. Tambahkan lewat link, atau salin lagu ke folder Music lalu pindai ulang.':'Nolep perlu izin untuk membaca semua lagu di HP-mu. Lagu langsung muncul dan bisa dicari.'}</p></div><div class="acts">${ok?`<button class="hbtn" data-h="scan">${svg(IC.music)}Pindai ulang</button>`:`<button class="hbtn" data-h="perm">${svg(IC.music)}Izinkan akses</button>`}<button class="hbtn g" data-h="link" style="background:var(--soft);color:var(--ink)">Tambah dari link</button></div>`}
  else if(!local.length&&!cloud.length){hero.className='hero blank';hero.innerHTML=`<div><small>Mulai dari HP-mu</small><h3>Pilih lagu dari HP</h3><ol><li>Tekan tombol di bawah, file manager HP akan terbuka</li><li>Buka folder Music atau Download, cari lagunya</li><li>Pilih satu atau banyak lagu sekaligus (MP3, M4A, FLAC, WAV)</li></ol></div><div class="acts"><span class="hbtn pick">${svg(IC.music)}Pilih lagu dari HP<input type="file" class="pickf" accept="audio/*" multiple aria-label="Pilih lagu dari HP"></span></div>`}
  else{const src=local.length?local:cloud,d=new Date(),pick=src[(d.getFullYear()*372+d.getMonth()*31+d.getDate())%src.length],tot=src.reduce((s,t)=>s+(t.dur||0),0);
   hero.className='hero';hero.style.background=artBg(pick.title+pick.artist);
   hero.innerHTML=`<div><small>Pilihan hari ini</small><h3>${esc(pick.title)}</h3><p>${esc(pick.artist)} · ${src.length} lagu · ${Math.round(tot/60)} menit</p></div><div class="acts"><button class="hbtn" data-h="pick">${svg(IC.play)}Putar</button><button class="hbtn g" data-h="shuf">${svg(IC.shuf)}Acak semua</button></div>`;
   hero.dataset.pick=pick.id}
- $('#list').innerHTML=list.length?list.map((t,i)=>row(t,i,kind)).join(''):`<li class="empty"><b>${all.length?'Tidak ditemukan':kind==='l'?'Belum ada lagu di HP ini':kind==='c'?'Cloud masih kosong':'Antrian kosong'}</b>${all.length?'Coba kata lain.':kind==='l'?(NATIVE?'Tekan + untuk memindai ulang atau menambah dari link.':'Tekan tombol + di kanan atas untuk memilih lagu.'):kind==='c'?'Buka menu titik tiga pada lagu, lalu pilih Unggah ke cloud.':'Putar lagu dari pustaka untuk mengisi antrian.'}</li>`;
- $('#libNote').textContent=kind==='l'&&local.length?(NATIVE?'Dibaca langsung dari penyimpanan HP dan dari lagu yang kamu unduh.':'Lagu tersimpan di aplikasi ini di HP, bisa diputar tanpa internet.'):'';renderJobs()}
+ if(kind==='p'&&!openP){$('#list').innerHTML=playlists.length?playlists.map(p=>{const tr=plTracks(p),m=Math.round(tr.reduce((s,t)=>s+(t.dur||0),0)/60);return`<li class="tr" data-pl="${esc(p.id)}"><div class="art" style="background:${artBg(p.name)}">${svg(IC_PL)}</div><div class="meta" data-a="openpl"><b>${esc(p.name)}</b><span>${tr.length} lagu${m?' · '+m+' menit':''}</span></div><button class="pc" data-a="playpl" aria-label="Putar">${svg(IC.play)}</button><button class="ib" data-a="plmore" aria-label="Pilihan lain">${svg(IC.more)}</button></li>`}).join(''):`<li class="empty"><b>Belum ada daftar putar</b>Buka tab Di HP ini, tekan Pilih lagu, centang lagu-lagunya, lalu tekan Ke daftar putar.</li>`}
+ else $('#list').innerHTML=list.length?list.map((t,i)=>row(t,i,kind)).join(''):`<li class="empty"><b>${all.length?'Tidak ditemukan':kind==='l'?'Belum ada lagu di HP ini':kind==='c'?'Cloud masih kosong':kind==='p'?'Daftar putar ini kosong':'Antrian kosong'}</b>${all.length?'Coba kata lain.':kind==='l'?(NATIVE?'Tekan + untuk memindai ulang atau menambah dari link.':'Tekan tombol + di kanan atas untuk memilih lagu.'):kind==='c'?'Buka menu titik tiga pada lagu, lalu pilih Unggah ke cloud.':kind==='p'?'Tambahkan lagu dari tab Di HP ini atau Cloud.':'Putar lagu dari pustaka untuk mengisi antrian.'}</li>`;
+ $('#libNote').textContent=kind==='l'&&local.length&&!selMode?(NATIVE?'Dibaca langsung dari penyimpanan HP dan dari lagu yang kamu unduh.':'Lagu tersimpan di aplikasi ini di HP, bisa diputar tanpa internet.'):'';
+ renderTools(kind);renderJobs()}
 $('#hero').onclick=e=>{const b=e.target.closest('[data-h]');if(!b)return;const src=local.length?local:cloud;
  if(b.dataset.h==='perm'){NATIVE.requestPermission();return}if(b.dataset.h==='scan'){rescan();return}if(b.dataset.h==='link'){openLink('');return}
  if(b.dataset.h==='pick'){const i=src.findIndex(t=>t.id===$('#hero').dataset.pick);startQueue(src,Math.max(0,i))}
  else{const was=shuffle;shuffle=true;startQueue(src,Math.floor(Math.random()*src.length));shuffle=was}};
 function inCloudOf(t){if(NATIVE){const n=nameOf(t);return cloud.some(c=>c.key&&c.key.split('/').pop()===n)}return cloud.some(x=>x.title===t.title&&x.size===t.size)}
+function exitSel(){selMode=false;sel.clear();renderLists()}
+function addToPl(p,ids){let n=0;for(const id of ids)if(!p.ids.includes(id)){p.ids.push(id);n++}savePl();toast(n?`${n} lagu masuk ke "${p.name}"`:'Semua lagu itu sudah ada di sana')}
+function pickPlaylist(ids){openSheet(`<p>Tambahkan ${ids.length} lagu ke…</p>${playlists.map(p=>`<button class="opt" data-p="${esc(p.id)}">${svg(IC_PL)}${esc(p.name)}<small style="margin-left:auto;color:var(--mut)">${p.ids.length}</small></button>`).join('')}
+ <label class="fld" style="margin-top:8px"><span>Daftar putar baru</span><input id="plNew" placeholder="Misalnya: Lagu galau, Gym, Santai" maxlength="40"></label>
+ <div class="row2"><button class="btn" data-o="new">Buat &amp; tambahkan</button><button class="btn ghost" data-o="x">Batal</button></div>`,e=>{const pb=e.target.closest('[data-p]'),o=e.target.closest('[data-o]');
+  if(pb){const p=playlists.find(x=>x.id===pb.dataset.p);if(p){addToPl(p,ids);closeSheet();exitSel()}return}
+  if(!o)return;if(o.dataset.o==='x'){closeSheet();return}
+  const name=$('#plNew').value.trim();if(!name){toast('Tulis nama daftar putar');$('#plNew').focus();return}
+  const p={id:'p'+Date.now().toString(36),name,ids:[]};playlists.push(p);addToPl(p,ids);closeSheet();exitSel()})}
+function plActions(p){openSheet(`<p>${esc(p.name)}</p><button class="opt" data-o="play">${svg(IC.play)}Putar</button><button class="opt" data-o="shuf">${svg(IC.shuf)}Putar acak</button>
+ <label class="fld" style="margin-top:6px"><span>Ubah nama</span><input id="plName" value="${esc(p.name)}" maxlength="40"></label><button class="opt" data-o="ren">${svg('<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>')}Simpan nama</button>
+ <button class="opt red" data-o="del">${svg(IC.del)}Hapus daftar putar</button><button class="btn ghost" data-o="x" style="width:100%;margin-top:8px">Tutup</button>`,async e=>{const o=e.target.closest('[data-o]');if(!o)return;const k=o.dataset.o;
+  if(k==='x'){closeSheet();return}if(k==='ren'){const n=$('#plName').value.trim();if(n){p.name=n;savePl();toast('Nama diubah');closeSheet();renderLists()}return}
+  closeSheet();const tr=plTracks(p);
+  if(k==='play'){if(tr.length)startQueue(tr,0);else toast('Daftar putar masih kosong')}
+  else if(k==='shuf'){if(tr.length){const was=shuffle;shuffle=true;startQueue(tr,Math.floor(Math.random()*tr.length));shuffle=was}}
+  else if(k==='del'){if(await ask(`Hapus daftar putar "${p.name}"? Lagunya tidak ikut terhapus.`)){playlists=playlists.filter(x=>x!==p);savePl();if(openPl===p.id)openPl=null;renderLists()}}})}
 function actions(t,kind){const inCloud=kind==='l'&&inCloudOf(t);
- $('#actSheet').innerHTML=`<p>${esc(t.title)}</p><button class="opt" data-o="play">${svg(IC.play)}Putar sekarang</button><button class="opt" data-o="queue">${svg('<path d="M3 10h11v2H3zm0-4h11v2H3zm0 8h7v2H3zm13-1v8l6-4z"/>')}Putar setelah ini</button>${kind==='l'&&!inCloud?`<button class="opt" data-o="up">${svg(IC.cloud)}Unggah ke cloud</button>`:''}${t.kind==='media'?'':`<button class="opt red" data-o="del">${svg(IC.del)}Hapus${kind==='c'?' dari cloud':NATIVE?' dari aplikasi':' dari HP ini'}</button>`}<button class="btn ghost" data-o="x" style="width:100%;margin-top:8px">Tutup</button>`;
+ $('#actSheet').innerHTML=`<p>${esc(t.title)}</p><button class="opt" data-o="play">${svg(IC.play)}Putar sekarang</button><button class="opt" data-o="queue">${svg(IC_Q)}Putar setelah ini</button><button class="opt" data-o="pl">${svg(IC_PL)}Tambah ke daftar putar</button>${kind==='p'?`<button class="opt" data-o="unpl">${svg('<path d="M19 13H5v-2h14v2z"/>')}Keluarkan dari daftar putar</button>`:''}${kind==='l'&&!inCloud?`<button class="opt" data-o="up">${svg(IC.cloud)}Unggah ke cloud</button>`:''}${t.kind==='media'||kind==='p'?'':`<button class="opt red" data-o="del">${svg(IC.del)}Hapus${kind==='c'?' dari cloud':NATIVE?' dari aplikasi':' dari HP ini'}</button>`}<button class="btn ghost" data-o="x" style="width:100%;margin-top:8px">Tutup</button>`;
  $('#act').classList.add('on');
- $('#act').onclick=e=>{const o=e.target.closest('[data-o]');if(!o&&e.target!==$('#act'))return;$('#act').classList.remove('on');if(!o)return;const k=o.dataset.o;
-  if(k==='play')startQueue(kind==='l'?viewL:viewC,(kind==='l'?viewL:viewC).indexOf(t));
+ $('#act').onclick=e=>{const o=e.target.closest('[data-o]');if(!o&&e.target!==$('#act'))return;$('#act').classList.remove('on');if(!o)return;const k=o.dataset.o;const src=kind==='l'?viewL:kind==='c'?viewC:viewP;
+  if(k==='play')startQueue(src,Math.max(0,src.indexOf(t)));
   else if(k==='queue'){if(!queue.length)startQueue([t],0);else{queue.splice(qi+1,0,t);renderLists();toast('Diputar setelah lagu ini')}}
+  else if(k==='pl')setTimeout(()=>pickPlaylist([t.id]),50);
+  else if(k==='unpl'){const p=playlists.find(x=>x.id===openPl);if(p){p.ids=p.ids.filter(id=>id!==t.id);savePl();renderLists();toast('Dikeluarkan')}}
   else if(k==='up')uploadTrack(t);else if(k==='del')deleteTrack(t)}}
-$('#list').onclick=e=>{const li=e.target.closest('.tr'),b=e.target.closest('[data-a]');if(!li||!b)return;
+$('#list').onclick=e=>{const li=e.target.closest('.tr');if(!li)return;
+ if(li.dataset.pl){const p=playlists.find(x=>x.id===li.dataset.pl);if(!p)return;const b=e.target.closest('[data-a]');const a=b?b.dataset.a:'openpl';
+  if(a==='playpl'){const tr=plTracks(p);if(tr.length)startQueue(tr,0);else toast('Daftar putar masih kosong')}else if(a==='plmore')plActions(p);else{openPl=p.id;renderLists();window.scrollTo(0,0)}return}
+ const b=e.target.closest('[data-a]');if(!b)return;
  const k=li.dataset.k,i=+li.dataset.i,src=curList(),t=src[i];if(!t)return;
+ if(b.dataset.a==='sel'){sel.has(t.id)?sel.delete(t.id):sel.add(t.id);renderLists();return}
  if(b.dataset.a==='play'){const c=cur();if(c&&c.id===t.id){toggle();return}if(k==='q')playAt(i);else startQueue(src,i)}
  else if(b.dataset.a==='more')actions(t,k)};
+$('#list').addEventListener('contextmenu',e=>{const li=e.target.closest('.tr');if(!li||li.dataset.pl)return;const k=li.dataset.k;if(k!=='l'&&k!=='c')return;e.preventDefault();const t=curList()[+li.dataset.i];if(!t)return;selMode=true;sel.add(t.id);if(navigator.vibrate)try{navigator.vibrate(15)}catch(_){}renderLists()});
+$('#tools').onclick=e=>{const b=e.target.closest('[data-t]');if(!b)return;const k=b.dataset.t,v=libTab==='lokal'?viewL:viewC;
+ if(k==='sel'){selMode=true;renderLists()}else if(k==='done')exitSel();
+ else if(k==='all'){const allOn=v.every(t=>sel.has(t.id));v.forEach(t=>allOn?sel.delete(t.id):sel.add(t.id));renderLists()}
+ else if(k==='back'){openPl=null;renderLists()}
+ else if(k==='plplay'){const p=playlists.find(x=>x.id===openPl);const tr=p?plTracks(p):[];if(tr.length)startQueue(tr,0);else toast('Daftar putar masih kosong')}
+ else if(k==='plmore'){const p=playlists.find(x=>x.id===openPl);if(p)plActions(p)}
+ else if(k==='new')pickPlaylist([])};
+$('#selbar').onclick=e=>{const b=e.target.closest('[data-s]');if(!b)return;const ids=[...sel];
+ if(b.dataset.s==='pl')pickPlaylist(ids);
+ else{const tr=ids.map(byId).filter(Boolean);if(!queue.length)startQueue(tr,0);else{queue.push(...tr);toast(tr.length+' lagu masuk antrian')}exitSel()}};
 $('#q').oninput=renderLists;
 
 /* ---------- ANIMASI (50 visualizer, satu per tema) ---------- */
@@ -799,8 +859,8 @@ const FD=new Uint8Array(128),WD=new Uint8Array(256).fill(128);
 const AU={f:i=>Math.min(1,FD[Math.max(0,Math.min(127,Math.floor(i*.62)))]/255*1.12),wave:WD,bass:0,mid:0,high:0,lvl:0,kick:0,beat:false,on:false,dt:0,sp:.18,prog:0,time:'0:00',bavg:0,cd:0};
 let animT=0;
 function analyse(dt){const on=!au.paused&&!!cur();AU.on=on;AU.dt=dt;AU.sp+=((on?1:.18)-AU.sp)*Math.min(1,dt*3);const T2=animT;
- if(on&&an){an.getByteFrequencyData(FD);an.getByteTimeDomainData(WD)}
- else if(on){for(let i=0;i<128;i++)FD[i]=Math.max(0,Math.min(255,(.45+.35*Math.sin(T2*3.1+i*.27)*Math.sin(T2*1.3+i*.07))*(1-i/90)*255*(.7+.3*Math.abs(Math.sin(T2*2.2)))));for(let i=0;i<256;i++)WD[i]=128+Math.sin(i*.15+T2*8)*40*Math.sin(T2*1.7)+Math.sin(i*.43-T2*5)*15}
+ let live=false;if(on&&an){an.getByteFrequencyData(FD);an.getByteTimeDomainData(WD);let s=0;for(let i=0;i<40;i++)s+=FD[i];AU.zero=s?0:(AU.zero||0)+dt;live=AU.zero<1.5}
+ if(live){}else if(on){for(let i=0;i<128;i++)FD[i]=Math.max(0,Math.min(255,(.45+.35*Math.sin(T2*3.1+i*.27)*Math.sin(T2*1.3+i*.07))*(1-i/90)*255*(.7+.3*Math.abs(Math.sin(T2*2.2)))));for(let i=0;i<256;i++)WD[i]=128+Math.sin(i*.15+T2*8)*40*Math.sin(T2*1.7)+Math.sin(i*.43-T2*5)*15}
  else{for(let i=0;i<128;i++)FD[i]=FD[i]*.92+Math.max(0,(46+30*Math.sin(T2*1.5+i*.2))*(1-i/70))*.08;for(let i=0;i<256;i++)WD[i]=WD[i]*.9+(128+Math.sin(i*.1+T2*2)*6)*.1}
  const avg=(a,b)=>{let s=0;for(let i=a;i<b;i++)s+=FD[i];return s/(b-a)/255};const b=avg(1,6),m=avg(8,30),h=avg(30,64);
  AU.bass=b;AU.mid=m;AU.high=Math.min(1,h*1.6);AU.lvl+=((b+m+AU.high)/3-AU.lvl)*.2;AU.bavg+=(b-AU.bavg)*.05;AU.cd-=dt;AU.beat=false;
@@ -823,10 +883,11 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min(.05,Math.max(
  gx.restore();gx.globalAlpha=1;gx.shadowBlur=0;gx.globalCompositeOperation='source-over';drawWave()}
 const wvc=$('#wv'),wg=wvc.getContext('2d');let WW=0,WH=0;
 new ResizeObserver(()=>{const r=wvc.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1);if(!r.width)return;WW=r.width;WH=r.height;wvc.width=Math.round(WW*d);wvc.height=Math.round(WH*d);wg.setTransform(d,0,0,d,0,0)}).observe(wvc);
+const wvS=[];
 function drawWave(){if(!WW)return;const c=cur(),seed=c?hash(c.title+c.artist)%997:7,n=Math.max(20,Math.floor(WW/5)),bw=WW/n,p=seeking?+$('#seek').value/1000:AU.prog;wg.clearRect(0,0,WW,WH);
- for(let i=0;i<n;i++){const u=i/n,base=.25+.55*Math.abs(Math.sin(i*.45+seed)*Math.sin(i*.13+seed*.7))+.2*hs(seed+i),near=Math.max(0,1-Math.abs(u-p)*n/6),live=AU.on?near*A_lv():0,h=Math.max(3,WH*Math.min(1,base*(.75+live*.5)));
-  wg.fillStyle=u<=p?PV.acc:rgba(PV.ink,.28);const x=i*bw+bw*.2,w=Math.max(1.5,bw*.55);wg.beginPath();if(wg.roundRect)wg.roundRect(x,(WH-h)/2,w,h,w/2);else wg.rect(x,(WH-h)/2,w,h);wg.fill()}}
-const A_lv=()=>Math.min(1,AU.lvl*2.2+AU.kick*.4);
+ for(let i=0;i<n;i++){const u=i/n,base=.25+.55*Math.abs(Math.sin(i*.45+seed)*Math.sin(i*.13+seed*.7))+.2*hs(seed+i),sp=AU.f(2+Math.abs((i/(n-1))*2-1)*48),
+  tgt=AU.on?Math.min(1,.1+base*.18+Math.pow(sp,2.4)*.8+AU.kick*.16):base*.6,prev=wvS[i]??tgt;wvS[i]=prev+(tgt-prev)*(tgt>prev?.6:.16);const hh=Math.max(3,WH*Math.min(1,wvS[i]));
+  wg.fillStyle=u<=p?PV.acc:rgba(PV.ink,.3);const x=i*bw+bw*.2,w=Math.max(1.5,bw*.55);wg.beginPath();if(wg.roundRect)wg.roundRect(x,(WH-hh)/2,w,hh,w/2);else wg.rect(x,(WH-hh)/2,w,hh);wg.fill()}}
 requestAnimationFrame(frame);
 
 
@@ -870,7 +931,7 @@ window.onNative=(type,d)=>{try{
  else if(type==='del'){toast(d.ok?'Dihapus dari Cloudflare':'Gagal: '+d.msg);NATIVE.listCloud()}
  else if(type==='share'){if(NATIVE)NATIVE.takeShare();openLink(d.url)}
 }catch(e){console.error(e)}};
-window.nolepBack=()=>{if($('#act').classList.contains('on')){closeSheet();return true}if($('#modal').classList.contains('on')){$('#mNo').click();return true}if(!$('#v-putar').classList.contains('on')){go('putar');return true}return false};
+window.nolepBack=()=>{if(selMode){exitSel();return true}if(openPl&&libTab==='playlist'&&$('#v-pustaka').classList.contains('on')&&!$('#act').classList.contains('on')){openPl=null;renderLists();return true}if($('#act').classList.contains('on')){closeSheet();return true}if($('#modal').classList.contains('on')){$('#mNo').click();return true}if(!$('#v-putar').classList.contains('on')){go('putar');return true}return false};
 if(NATIVE){const pk=document.querySelector('.hello .pick');if(pk){const inp=pk.querySelector('input');if(inp)inp.remove();pk.setAttribute('role','button');pk.setAttribute('aria-label','Tambah lagu');pk.onclick=openAddMenu}}
 
 /* ---------- MULAI ---------- */
