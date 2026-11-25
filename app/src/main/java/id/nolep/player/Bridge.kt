@@ -23,6 +23,12 @@ import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLDecoder
+import android.util.Base64
+import java.security.KeyStore
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 import kotlin.concurrent.thread
 
 interface Source {
@@ -65,7 +71,6 @@ class Bridge(private val act: MainActivity) {
     companion object {
         const val HOST = "appassets.androidplatform.net"
         private const val API = "https://nplayer-music-api.rintatia.workers.dev"
-        private const val API_TOKEN = "fcbe537cbd03ed4102dc316a550deeece6e232af1ada6fd5e649f275ba986029ca076fbd4ea1c83a73365f0010cba145"
         private val AUDIO_EXT = Regex("\\.(mp3|m4a|m4b|aac|ogg|oga|opus|wav|flac|webm|mp4|3gp|amr|awb|mid|midi|xmf|imy|ota|rtttl|mka|mkv|aif|aiff|wma|ape|alac|caf|dsf|ac3|eac3|weba)$", RegexOption.IGNORE_CASE)
     }
 
@@ -153,18 +158,52 @@ class Bridge(private val act: MainActivity) {
 
     /* ---------- Cloud API (NPlayer V7.1) ---------- */
     @JavascriptInterface
-    fun getConfig(): String = JSONObject().put("auto", prefs.getBoolean("auto", true)).put("service", "NPlayer Cloud").toString()
+    fun getConfig(): String = JSONObject().put("auto", prefs.getBoolean("auto", true)).put("hasToken", prefs.contains("api_token")).put("service", "NPlayer Cloud").toString()
     @JavascriptInterface
-    fun setConfig(json: String) { val o = JSONObject(json); prefs.edit().putBoolean("auto", o.optBoolean("auto", true)).apply() }
+    fun setConfig(json: String) {
+        val o = JSONObject(json)
+        prefs.edit().putBoolean("auto", o.optBoolean("auto", true)).apply()
+        val supplied = o.optString("token", "").trim()
+        if (supplied.isNotEmpty()) saveApiToken(supplied)
+    }
+    private fun secretKey(): SecretKey {
+        val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val existing = ks.getKey("nplayer_cloud_token", null) as? SecretKey
+        if (existing != null) return existing
+        val gen = KeyGenerator.getInstance("AES", "AndroidKeyStore")
+        gen.init(android.security.keystore.KeyGenParameterSpec.Builder(
+            "nplayer_cloud_token",
+            android.security.keystore.KeyProperties.PURPOSE_ENCRYPT or android.security.keystore.KeyProperties.PURPOSE_DECRYPT
+        ).setBlockModes(android.security.keystore.KeyProperties.BLOCK_MODE_GCM)
+         .setEncryptionPaddings(android.security.keystore.KeyProperties.ENCRYPTION_PADDING_NONE)
+         .setRandomizedEncryptionRequired(true).build())
+        return gen.generateKey()
+    }
+    private fun saveApiToken(token: String) {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey())
+        val encrypted = cipher.doFinal(token.toByteArray(Charsets.UTF_8))
+        val packed = cipher.iv + encrypted
+        prefs.edit().putString("api_token", Base64.encodeToString(packed, Base64.NO_WRAP)).apply()
+    }
+    private fun apiToken(): String {
+        val packed = Base64.decode(prefs.getString("api_token", "") ?: "", Base64.NO_WRAP)
+        if (packed.size <= 12) return ""
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(128, packed.copyOfRange(0, 12)))
+        return String(cipher.doFinal(packed.copyOfRange(12, packed.size)), Charsets.UTF_8)
+    }
     private fun api(path: String, method: String = "GET", range: String? = null, contentType: String? = null): HttpURLConnection {
+        val token = apiToken()
+        if (token.isBlank()) throw IOException("Token Cloud belum diatur. Buka Pengaturan Cloud.")
         val c = URL(API + path).openConnection() as HttpURLConnection
         c.requestMethod = method; c.connectTimeout = 20000; c.readTimeout = 120000
-        c.setRequestProperty("Authorization", "Bearer " + API_TOKEN); c.setRequestProperty("User-Agent", "NPlayer/7.1 Android")
+        c.setRequestProperty("Authorization", "Bearer " + token); c.setRequestProperty("User-Agent", "NPlayer/7.1 Android")
         if (range != null) c.setRequestProperty("Range", range); if (contentType != null) c.setRequestProperty("Content-Type", contentType)
         return c
     }
     private fun apiKey(key: String) = Uri.encode(key, "/")
-    @JavascriptInterface fun cloudReady(): Boolean = true
+    @JavascriptInterface fun cloudReady(): Boolean = prefs.contains("api_token")
     @JavascriptInterface fun testCloud() { thread {
         val out = JSONObject()
         try { val c = api("/api/tracks"); val code = c.responseCode; val body = (if (code >= 400) c.errorStream else c.inputStream)?.bufferedReader()?.use { it.readText() } ?: ""
@@ -354,7 +393,7 @@ class Bridge(private val act: MainActivity) {
                     "file" -> p.setDataSource(File(musicDir, File(ref).name).absolutePath)
                     "r2" -> {
                         val url = API + "/api/stream/" + apiKey(ref)
-                        p.setDataSource(act, Uri.parse(url), mapOf("Authorization" to "Bearer " + API_TOKEN))
+                        p.setDataSource(act, Uri.parse(url), mapOf("Authorization" to "Bearer " + apiToken()))
                     }
                     else -> throw IOException("Sumber tidak dikenal")
                 }
