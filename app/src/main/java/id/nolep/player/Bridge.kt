@@ -204,6 +204,7 @@ class Bridge(private val act: MainActivity) {
     }
     private fun apiKey(key: String) = Uri.encode(key, "/")
     @JavascriptInterface fun cloudReady(): Boolean = prefs.contains("api_token")
+    @JavascriptInterface fun pickAudio() = act.pickAudio()
     @JavascriptInterface fun testCloud() { thread {
         val out = JSONObject()
         try { val c = api("/api/tracks"); val code = c.responseCode; val body = (if (code >= 400) c.errorStream else c.inputStream)?.bufferedReader()?.use { it.readText() } ?: ""
@@ -223,7 +224,7 @@ class Bridge(private val act: MainActivity) {
         catch (e: Exception) { out.put("ok", false).put("msg", e.message ?: "Gagal menghapus") }; emit("del", out.toString())
     } }
     @JavascriptInterface fun upload(kind: String, ref: String, name: String) { thread {
-        try { val src: Source = if (kind == "media") MediaSource(act, ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, ref.toLong())) else FileSource(File(musicDir, File(ref).name)); uploadFile(safeName(name), src) }
+        try { val src: Source = when (kind) { "media" -> MediaSource(act, ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, ref.toLong())); "uri" -> MediaSource(act, Uri.parse(ref)); else -> FileSource(File(musicDir, File(ref).name)) }; uploadFile(safeName(name), src) }
         catch (e: Exception) { emit("up", JSONObject().put("name", safeName(name)).put("status", "error").put("msg", e.message ?: "Gagal membuka file").toString()) }
     } }
     private fun uploadFile(name: String, src: Source) {

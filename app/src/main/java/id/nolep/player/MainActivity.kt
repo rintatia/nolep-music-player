@@ -5,13 +5,16 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.os.Build
+import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import org.json.JSONArray
 import org.json.JSONObject
 
 class MainActivity : Activity() {
@@ -84,6 +87,46 @@ class MainActivity : Activity() {
             arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
         runOnUiThread { requestPermissions(perms, 7) }
+    }
+
+    fun pickAudio() {
+        runOnUiThread {
+            val i = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("audio/*").putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            try {
+                startActivityForResult(i, 42)
+            } catch (e: Exception) {
+                emitJs("picked", JSONObject().put("items", JSONArray()).put("msg", "Pemilih file tidak tersedia").toString())
+            }
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != 42) return
+        val uris = mutableListOf<Uri>()
+        if (resultCode == RESULT_OK && data != null) {
+            val clip = data.clipData
+            if (clip != null) for (k in 0 until clip.itemCount) uris.add(clip.getItemAt(k).uri)
+            else data.data?.let { uris.add(it) }
+        }
+        val arr = JSONArray()
+        for (u in uris) {
+            var name = u.lastPathSegment ?: "lagu"
+            var size = -1L
+            try {
+                contentResolver.query(u, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
+                    if (c.moveToFirst()) {
+                        c.getString(0)?.let { name = it }
+                        if (!c.isNull(1)) size = c.getLong(1)
+                    }
+                }
+            } catch (e: Exception) {
+            }
+            arr.put(JSONObject().put("uri", u.toString()).put("name", name).put("size", size))
+        }
+        emitJs("picked", JSONObject().put("items", arr).toString())
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

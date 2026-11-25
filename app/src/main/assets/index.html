@@ -23,6 +23,7 @@
 *{box-sizing:border-box;min-width:0;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 input,textarea{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 [hidden]{display:none!important}
+html.lock,html.lock body{overflow:hidden;height:100%;overscroll-behavior:none}html.lock .app{padding-bottom:0}
 html,body{min-height:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--font),system-ui,sans-serif;overflow-x:clip;transition:background-color .4s,color .4s}
 .bgfx{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
@@ -41,7 +42,7 @@ button{cursor:pointer;border:0;background:none;padding:0}
 .gb.acc{background:var(--acc);color:var(--on);border-color:transparent;box-shadow:0 8px 22px -8px var(--acc)}
 /* ---------- pemutar ---------- */
 #v-putar{padding-bottom:0}
-.player{position:relative;height:calc(100svh - 22px);min-height:600px;max-height:900px;border-radius:34px;overflow:hidden;background:var(--card);box-shadow:0 40px 80px -40px var(--acc),0 0 0 1px var(--line)}
+.player{position:relative;height:calc(100svh - 20px);min-height:520px;max-height:900px;border-radius:34px;overflow:hidden;background:var(--card);box-shadow:0 40px 80px -40px var(--acc),0 0 0 1px var(--line)}
 .player>canvas{position:absolute;left:0;right:0;top:0;width:100%;height:calc(100% - 250px);display:block;-webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent)}
 .ph{position:absolute;left:14px;right:14px;top:14px;display:flex;align-items:center;gap:10px}
 .ph .gb{background:color-mix(in srgb,var(--card) 40%,transparent)}
@@ -515,7 +516,7 @@ $('#fontList').onclick=e=>{const fc=e.target.closest('[data-fc]');if(fc){fontCat
 /* ---------- NAVIGASI ---------- */
 const VIEWS=['putar','pustaka','tema'];
 function go(v){if(!VIEWS.includes(v))v='putar';
- VIEWS.forEach(x=>$('#v-'+x).classList.toggle('on',x===v));
+ VIEWS.forEach(x=>$('#v-'+x).classList.toggle('on',x===v));document.documentElement.classList.toggle('lock',v==='putar');
  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
  if(location.hash!=='#'+v)history.replaceState(null,'','#'+v);
  if(v==='tema')renderThemes();
@@ -1569,7 +1570,9 @@ function renderJobs(){const el=$('#jobs');if(!el)return;const ks=Object.keys(job
 function openSheet(html,onClick){$('#actSheet').innerHTML=html;$('#act').classList.add('on');$('#act').onclick=e=>{if(e.target===$('#act')){closeSheet();return}if(onClick)onClick(e)}}
 function closeSheet(){$('#act').classList.remove('on')}
 async function rescan(){if(!NATIVE)return;if(!NATIVE.hasPermission()){NATIVE.requestPermission();return}await loadLocal();renderLists();toast(local.length+' lagu ditemukan')}
-function openAddMenu(){openSheet(`<p>Tambah lagu</p><button class="opt" data-o="scan">${svg(IC.music)}Pindai ulang lagu di HP</button><button class="opt" data-o="link">${svg('<path d="M3.9 12a3.1 3.1 0 0 1 3.1-3.1h4V7H7a5 5 0 0 0 0 10h4v-1.9H7A3.1 3.1 0 0 1 3.9 12zM8 13h8v-2H8v2zm9-6h-4v1.9h4a3.1 3.1 0 0 1 0 6.2h-4V17h4a5 5 0 0 0 0-10z"/>')}Tambah dari link</button><button class="opt" data-o="cloud">${svg(IC.cloud)}Pindai ulang lagu dari Cloudflare</button><button class="btn ghost" data-o="x" style="width:100%;margin-top:8px">Tutup</button>`,e=>{const o=e.target.closest('[data-o]');if(!o)return;closeSheet();const k=o.dataset.o;if(k==='scan')rescan();else if(k==='link')openLink('');else if(k==='cloud'){go('pustaka');setLib('cloud');nativeCloud()}})}
+function openAddMenu(){openSheet(`<p>Tambah lagu</p><button class="opt" data-o="scan">${svg(IC.music)}Pindai ulang lagu di HP</button><button class="opt" data-o="link">${svg('<path d="M3.9 12a3.1 3.1 0 0 1 3.1-3.1h4V7H7a5 5 0 0 0 0 10h4v-1.9H7A3.1 3.1 0 0 1 3.9 12zM8 13h8v-2H8v2zm9-6h-4v1.9h4a3.1 3.1 0 0 1 0 6.2h-4V17h4a5 5 0 0 0 0-10z"/>')}Tambah dari link</button><button class="opt" data-o="upl">${svg('<path d="M5 20h14v-2H5v2zm0-10h4v6h6v-6h4l-7-7-7 7z"/>')}Upload dari HP ke Cloudflare</button><button class="opt" data-o="cloud">${svg(IC.cloud)}Pindai ulang lagu dari Cloudflare</button><button class="opt" data-o="cfg">${svg('<path d="M19.14 12.94a7.4 7.4 0 0 0 0-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7 7 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.84a.5.5 0 0 0-.49.42l-.36 2.54a7 7 0 0 0-1.63.94l-2.39-.96a.5.5 0 0 0-.61.22L2.66 8.48a.5.5 0 0 0 .12.64l2.03 1.58a7.4 7.4 0 0 0 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.12.22.38.3.61.22l2.39-.96c.5.38 1.05.7 1.63.94l.36 2.54c.04.24.25.42.49.42h3.84c.24 0 .45-.18.49-.42l.36-2.54a7 7 0 0 0 1.63-.94l2.39.96c.23.08.49 0 .61-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/>')}Pengaturan Cloud</button><button class="btn ghost" data-o="x" style="width:100%;margin-top:8px">Tutup</button>`,e=>{const o=e.target.closest('[data-o]');if(!o)return;closeSheet();const k=o.dataset.o;if(k==='scan')rescan();else if(k==='link')openLink('');else if(k==='cloud'){go('pustaka');setLib('cloud');nativeCloud()}else if(k==='cfg')openSettings();else if(k==='upl'){if(!NATIVE.cloudReady()){toast('Isi token Cloud dulu');openSettings();return}NATIVE.pickAudio()}})}
+const upQ=[];let upBusy=false;
+function nextUp(){if(upBusy||!upQ.length)return;const it=upQ.shift();upBusy=true;jobs['up:'+it.name]={label:'Mengunggah '+it.name,pct:0};renderJobs();NATIVE.upload('uri',it.uri,it.name)}
 function openLink(pre){
  openSheet(`<p>Tambah dari link</p><label class="fld"><span>Link file audio</span><input id="lkUrl" type="url" inputmode="url" placeholder="https://…/lagu.mp3" value="${esc(pre||'')}"></label>
  <div class="help">File akan diunduh dari link lalu langsung disimpan ke Cloudflare. Bisa: link MP3/M4A/FLAC langsung, Google Drive (file dibagikan "siapa saja yang punya link"), Dropbox, Internet Archive, Bandcamp yang sudah dibeli. Tidak bisa: YouTube / YouTube Music.<br>Tips: dari browser, tekan Bagikan lalu pilih NPlayer.</div>
@@ -1587,13 +1590,14 @@ function openSettings(){let c={};try{c=JSON.parse(NATIVE.getConfig())}catch(e){}
  <div id="cfMsg" class="help">${c.hasToken?'Token sudah tersimpan di perangkat.':'Token diperlukan untuk mengakses NPlayer Cloud.'}</div>
  <div class="row2"><button class="btn" data-o="save">Simpan &amp; tes</button><button class="btn ghost" data-o="x">Tutup</button></div>`,e=>{const o=e.target.closest("[data-o]");if(!o)return;if(o.dataset.o==="x"){closeSheet();return}
   NATIVE.setConfig(JSON.stringify({auto:$("#cfAuto").checked,token:$("#cfToken").value}));$("#cfToken").value="";$("#cfMsg").textContent="Menguji layanan…";NATIVE.testCloud()})}
-function nativeCloud(){const st=$('#cloudState');if(!NATIVE.cloudReady()){st.textContent='NPlayer Cloud tidak dapat dijangkau. Periksa koneksi internet.';cloud=[];renderLists();return}st.textContent='Memuat lagu dari Cloudflare…';NATIVE.listCloud()}
+function nativeCloud(){const st=$('#cloudState');if(!NATIVE.cloudReady()){st.textContent='Token Cloud belum diatur. Tekan + lalu Pengaturan Cloud.';cloud=[];renderLists();return}st.textContent='Memuat lagu dari Cloudflare…';NATIVE.listCloud()}
 window.onNative=(type,d)=>{try{
  if(type==='perm'){loadLocal().then(()=>{renderLists();toast(d.granted?local.length+' lagu ditemukan':'Izin ditolak. Bisa diubah di Pengaturan HP.')})}
  else if(type==='dl'){if(d.status==='progress'){jobs[d.id]={label:'Mengunduh '+(d.name||''),pct:d.pct};renderJobs()}
   else if(d.status==='uploading'){delete jobs[d.id];jobs['up:'+d.name]={label:'Menyimpan ke Cloudflare: '+d.name,pct:0};renderJobs()}
   else{delete jobs[d.id];renderJobs();if(d.status==='done'){toast('Tersimpan di Cloudflare: '+d.name);NATIVE.listCloud()}else toast('Gagal: '+d.msg)}}
- else if(type==='up'){const k='up:'+d.name;if(d.status==='progress'){jobs[k]={label:'Mengunggah '+d.name,pct:d.pct};renderJobs()}
+ else if(type==='picked'){const its=(d.items||[]).filter(x=>x.uri);if(!its.length){if(d.msg)toast(d.msg);return}its.forEach(x=>upQ.push({uri:x.uri,name:x.name.replace(/[\\/:*?"<>|\n\r\t]/g,'_').trim().slice(0,140)||'lagu'}));toast(its.length+' lagu akan diunggah');go('pustaka');setLib('cloud');nextUp()}
+ else if(type==='up'){const k='up:'+d.name;if(d.status!=='progress'){upBusy=false;setTimeout(nextUp,50)}if(d.status==='progress'){jobs[k]={label:'Mengunggah '+d.name,pct:d.pct};renderJobs()}
   else{delete jobs[k];renderJobs();if(d.status==='done'){toast('Tersimpan di Cloudflare');NATIVE.listCloud()}else toast('Gagal unggah: '+d.msg)}}
  else if(type==='cloud'){const st=$('#cloudState');if(d.ok){cloud=d.items.map(i=>{const p=parseName(i.key.split('/').pop());return{id:'c'+i.key,key:i.key,kind:'r2',title:p.title,artist:p.artist,size:+i.size||0,added:+i.added||0,dur:0,src:'/r2/'+encodeURIComponent(i.key)}}).sort((a,b)=>b.added-a.added);st.textContent=cloud.length+' lagu di Cloudflare R2.'}else st.textContent=d.msg;renderLists()}
  else if(type==='test'){const m=$('#cfMsg');if(m)m.textContent=d.msg;toast(d.ok?'Cloudflare tersambung':'Gagal: '+d.msg);if(d.ok)nativeCloud()}
