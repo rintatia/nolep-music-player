@@ -1574,8 +1574,8 @@ function openLink(pre){
  openSheet(`<p>Tambah dari link</p><label class="fld"><span>Link file audio</span><input id="lkUrl" type="url" inputmode="url" placeholder="https://…/lagu.mp3" value="${esc(pre||'')}"></label>
  <div class="help">File akan diunduh dari link lalu langsung disimpan ke Cloudflare. Bisa: link MP3/M4A/FLAC langsung, Google Drive (file dibagikan "siapa saja yang punya link"), Dropbox, Internet Archive, Bandcamp yang sudah dibeli. Tidak bisa: YouTube / YouTube Music.<br>Tips: dari browser, tekan Bagikan lalu pilih NPlayer.</div>
  <div class="row2"><button class="btn" data-o="go">Simpan</button><button class="btn ghost" data-o="x">Batal</button></div>`,e=>{const o=e.target.closest('[data-o]');if(!o)return;if(o.dataset.o==='x'){closeSheet();return}
-  const url=$('#lkUrl').value.trim();if(!/^https?:\\/\\/\\S+$/i.test(url)){toast('Tempel link yang diawali https://');return}
-  if(/(^|\\.)(youtube\\.com|youtu\\.be|music\\.youtube\\.com)/i.test(url.replace(/^https?:\/\//,'').split('/')[0])){toast('Link YouTube tidak didukung');return}
+  const url=$('#lkUrl').value.trim();if(!/^https?:\/\/\S+$/i.test(url)){toast('Tempel link yang diawali https://');return}
+  if(/(^|\.)(youtube\.com|youtu\.be|music\.youtube\.com)/i.test(url.replace(/^https?:\/\//,'').split('/')[0])){toast('Link YouTube tidak didukung');return}
   if(!NATIVE.cloudReady()){toast('Atur token Cloud terlebih dahulu melalui menu unggah lagu.');return}
   const id='dl'+Date.now();jobs[id]={label:'Menyiapkan unduhan…',pct:-1};NATIVE.download(url,id,true);closeSheet();go('pustaka');setLib('cloud');renderJobs()});
  setTimeout(()=>{const i=$('#lkUrl');if(i&&!pre)i.focus()},250)}
