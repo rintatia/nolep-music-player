@@ -1580,17 +1580,13 @@ function openLink(pre){const ready=NATIVE.cloudReady();
   const id='dl'+Date.now();jobs[id]={label:'Mengunduh…',pct:-1};NATIVE.download(url,id,$('#lkAuto').checked);closeSheet();go('pustaka');setLib('lokal');renderJobs()});
  setTimeout(()=>{const i=$('#lkUrl');if(i&&!pre)i.focus()},250)}
 function openSettings(){let c={};try{c=JSON.parse(NATIVE.getConfig())}catch(e){}
- openSheet(`<p>Pengaturan Cloudflare R2</p>
- <div class="help">Data ini hanya disimpan di HP-mu.<ol><li>Masuk ke dash.cloudflare.com, buka <b>R2</b>, buat bucket (misalnya <b>nplayer</b>).</li><li>Di halaman R2, buat <b>API token</b> dengan izin <b>Object Read &amp; Write</b> untuk bucket itu.</li><li>Salin <b>Access Key ID</b> dan <b>Secret Access Key</b> (secret hanya tampil sekali).</li><li><b>Account ID</b> ada di halaman R2 atau di URL dashboard.</li></ol></div>
- <label class="fld"><span>Account ID</span><input id="cfA" value="${esc(c.accountId||'')}" autocomplete="off" spellcheck="false"></label>
- <label class="fld"><span>Nama bucket</span><input id="cfB" value="${esc(c.bucket||'')}" autocomplete="off" spellcheck="false"></label>
- <label class="fld"><span>Access Key ID</span><input id="cfK" value="${esc(c.accessKey||'')}" autocomplete="off" spellcheck="false"></label>
- <label class="fld"><span>Secret Access Key</span><input id="cfS" type="password" placeholder="${c.hasSecret?'Tersimpan (isi untuk mengganti)':''}" autocomplete="off"></label>
+ openSheet(`<p>Pengaturan NPlayer Cloud</p>
+ <div class="help">Penyimpanan cloud NPlayer sudah terhubung ke server aplikasi. Tidak perlu memasukkan Access Key atau Secret R2 di HP.</div>
  <label class="chk"><input type="checkbox" id="cfAuto" ${c.auto!==false?'checked':''}>Unggah otomatis lagu hasil unduhan</label>
- <div id="cfMsg" class="help"></div>
- <div class="row2"><button class="btn" data-o="save">Simpan &amp; tes</button><button class="btn ghost" data-o="x">Tutup</button></div>`,e=>{const o=e.target.closest('[data-o]');if(!o)return;if(o.dataset.o==='x'){closeSheet();return}
-  NATIVE.setConfig(JSON.stringify({accountId:$('#cfA').value,bucket:$('#cfB').value,accessKey:$('#cfK').value,secret:$('#cfS').value,auto:$('#cfAuto').checked}));$('#cfMsg').textContent='Mengetes sambungan…';NATIVE.testCloud()})}
-function nativeCloud(){const st=$('#cloudState');if(!NATIVE.cloudReady()){st.textContent='Cloudflare belum diatur. Tekan + lalu Pengaturan Cloudflare.';cloud=[];renderLists();return}st.textContent='Memuat lagu dari Cloudflare…';NATIVE.listCloud()}
+ <div id="cfMsg" class="help">Layanan: NPlayer Cloud API</div>
+ <div class="row2"><button class="btn" data-o="save">Simpan &amp; tes</button><button class="btn ghost" data-o="x">Tutup</button></div>`,e=>{const o=e.target.closest("[data-o]");if(!o)return;if(o.dataset.o==="x"){closeSheet();return}
+  NATIVE.setConfig(JSON.stringify({auto:$("#cfAuto").checked}));$("#cfMsg").textContent="Menguji layanan…";NATIVE.testCloud()})}
+function nativeCloud(){const st=$('#cloudState');if(!NATIVE.cloudReady()){st.textContent='NPlayer Cloud tidak dapat dijangkau. Periksa koneksi internet.';cloud=[];renderLists();return}st.textContent='Memuat lagu dari Cloudflare…';NATIVE.listCloud()}
 window.onNative=(type,d)=>{try{
  if(type==='perm'){loadLocal().then(()=>{renderLists();toast(d.granted?local.length+' lagu ditemukan':'Izin ditolak. Bisa diubah di Pengaturan HP.')})}
  else if(type==='dl'){if(d.status==='progress'){jobs[d.id]={label:'Mengunduh '+(d.name||''),pct:d.pct};renderJobs()}
