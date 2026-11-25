@@ -13,7 +13,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = run
-        versionName = "1.0.$run"
+        versionName = "7.1.$run"
     }
     signingConfigs {
         create("nolep") {
