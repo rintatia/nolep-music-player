@@ -4,7 +4,9 @@ import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
 import android.media.MediaMetadataRetriever
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -62,7 +64,7 @@ class LimitedStream(private val inner: InputStream, private var left: Long) : In
 class Bridge(private val act: MainActivity) {
     companion object {
         const val HOST = "appassets.androidplatform.net"
-        private val AUDIO_EXT = Regex("\\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|webm|mp4)$", RegexOption.IGNORE_CASE)
+        private val AUDIO_EXT = Regex("\\.(mp3|m4a|m4b|aac|ogg|oga|opus|wav|flac|webm|mp4|3gp|amr|awb|mid|midi|xmf|imy|ota|rtttl|mka|mkv|aif|aiff|wma|ape|alac|caf|dsf|ac3|eac3|weba)$", RegexOption.IGNORE_CASE)
     }
 
     private val prefs = act.getSharedPreferences("nolep", Context.MODE_PRIVATE)
@@ -105,7 +107,7 @@ class Bridge(private val act: MainActivity) {
             try {
                 act.contentResolver.query(
                     MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, proj,
-                    "${MediaStore.Audio.Media.DURATION} >= ?", arrayOf("20000"),
+                    "(${MediaStore.Audio.Media.DURATION} >= ? OR ${MediaStore.Audio.Media.DURATION} IS NULL OR ${MediaStore.Audio.Media.DURATION} = 0) AND ${MediaStore.Audio.Media.SIZE} > ?", arrayOf("20000", "150000"),
                     "${MediaStore.Audio.Media.DATE_ADDED} DESC"
                 )?.use { c ->
                     while (c.moveToNext()) {
@@ -378,7 +380,87 @@ class Bridge(private val act: MainActivity) {
             "webm" -> "audio/webm"
             "aac" -> "audio/aac"
             "mp3" -> "audio/mpeg"
+            "3gp" -> "audio/3gpp"
+            "amr" -> "audio/amr"
+            "mid", "midi" -> "audio/midi"
+            "aif", "aiff" -> "audio/aiff"
+            "wma" -> "audio/x-ms-wma"
+            "mka" -> "audio/x-matroska"
             else -> MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "application/octet-stream"
+        }
+    }
+
+    /* ---------- pemutar bawaan Android (cadangan untuk format yang tidak bisa diputar WebView) ---------- */
+    private var mp: MediaPlayer? = null
+    @Volatile
+    private var mpReady = false
+
+    @JavascriptInterface
+    fun nPlay(kind: String, ref: String, startMs: Int) {
+        act.runOnUiThread {
+            try {
+                mp?.release()
+                mp = null
+                mpReady = false
+                val p = MediaPlayer()
+                p.setAudioAttributes(
+                    AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
+                )
+                when (kind) {
+                    "media" -> p.setDataSource(act, ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, ref.toLong()))
+                    "file" -> p.setDataSource(File(musicDir, File(ref).name).absolutePath)
+                    "r2" -> {
+                        val r = r2() ?: throw IOException("Cloudflare belum diatur")
+                        val (url, headers) = r.signedGet(ref)
+                        p.setDataSource(act, Uri.parse(url), headers)
+                    }
+                    else -> throw IOException("Sumber tidak dikenal")
+                }
+                p.setOnPreparedListener {
+                    mpReady = true
+                    if (startMs > 0) it.seekTo(startMs)
+                    it.start()
+                    emit("np", JSONObject().put("state", "playing").put("dur", it.duration).toString())
+                }
+                p.setOnCompletionListener { emit("np", JSONObject().put("state", "ended").toString()) }
+                p.setOnErrorListener { _, what, extra ->
+                    mpReady = false
+                    emit("np", JSONObject().put("state", "error").put("msg", "Format tidak didukung HP ini ($what/$extra)").toString())
+                    true
+                }
+                mp = p
+                p.prepareAsync()
+            } catch (e: Exception) {
+                emit("np", JSONObject().put("state", "error").put("msg", e.message ?: "Gagal memutar").toString())
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun nPause() = act.runOnUiThread { try { if (mpReady) mp?.pause() } catch (e: Exception) { } }
+
+    @JavascriptInterface
+    fun nResume() = act.runOnUiThread { try { if (mpReady) mp?.start() } catch (e: Exception) { } }
+
+    @JavascriptInterface
+    fun nSeek(ms: Int) = act.runOnUiThread { try { if (mpReady) mp?.seekTo(ms) } catch (e: Exception) { } }
+
+    @JavascriptInterface
+    fun nStop() = act.runOnUiThread {
+        try { mp?.release() } catch (e: Exception) { }
+        mp = null
+        mpReady = false
+    }
+
+    @JavascriptInterface
+    fun nPos(): String {
+        val p = mp
+        if (p == null || !mpReady) return "{\"pos\":0,\"dur\":0,\"playing\":false}"
+        return try {
+            JSONObject().put("pos", p.currentPosition).put("dur", p.duration).put("playing", p.isPlaying).toString()
+        } catch (e: Exception) {
+            "{\"pos\":0,\"dur\":0,\"playing\":false}"
         }
     }
 

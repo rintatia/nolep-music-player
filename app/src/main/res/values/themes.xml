@@ -2,6 +2,7 @@
 <resources>
     <color name="bg">#0F1020</color>
     <color name="acc">#FF5C8A</color>
+    <color name="icon_bg">#FFFFFF</color>
     <style name="AppTheme" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@color/bg</item>

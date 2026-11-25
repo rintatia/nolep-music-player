@@ -46,13 +46,13 @@ class R2(
         return sb.toString()
     }
 
-    private fun request(
-        method: String,
-        objKey: String?,
-        query: Map<String, String>,
-        payloadHash: String,
-        extra: Map<String, String> = mapOf()
-    ): HttpURLConnection {
+    /** URL dan header bertanda tangan untuk GET, dipakai pemutar bawaan Android. */
+    fun signedGet(objKey: String): Pair<String, Map<String, String>> {
+        val (url, headers) = sign("GET", objKey, mapOf(), EMPTY)
+        return Pair(url, headers)
+    }
+
+    private fun sign(method: String, objKey: String?, query: Map<String, String>, payloadHash: String): Pair<String, Map<String, String>> {
         val df = SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'", Locale.US)
         df.timeZone = TimeZone.getTimeZone("UTC")
         val amz = df.format(Date())
@@ -69,13 +69,27 @@ class R2(
         k = hmac(k, "s3")
         k = hmac(k, "aws4_request")
         val sig = hex(hmac(k, sts))
-        val c = URL("https://$host$path" + (if (q.isNotEmpty()) "?$q" else "")).openConnection() as HttpURLConnection
+        val url = "https://$host$path" + (if (q.isNotEmpty()) "?$q" else "")
+        return Pair(url, mapOf(
+            "x-amz-content-sha256" to payloadHash,
+            "x-amz-date" to amz,
+            "Authorization" to "AWS4-HMAC-SHA256 Credential=$accessKey/$scope, SignedHeaders=$signed, Signature=$sig"
+        ))
+    }
+
+    private fun request(
+        method: String,
+        objKey: String?,
+        query: Map<String, String>,
+        payloadHash: String,
+        extra: Map<String, String> = mapOf()
+    ): HttpURLConnection {
+        val (url, sh) = sign(method, objKey, query, payloadHash)
+        val c = URL(url).openConnection() as HttpURLConnection
         c.requestMethod = method
         c.connectTimeout = 20000
         c.readTimeout = 60000
-        c.setRequestProperty("x-amz-content-sha256", payloadHash)
-        c.setRequestProperty("x-amz-date", amz)
-        c.setRequestProperty("Authorization", "AWS4-HMAC-SHA256 Credential=$accessKey/$scope, SignedHeaders=$signed, Signature=$sig")
+        for ((a, b) in sh) c.setRequestProperty(a, b)
         for ((a, b) in extra) c.setRequestProperty(a, b)
         return c
     }
