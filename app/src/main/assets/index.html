@@ -1591,7 +1591,8 @@ function nativeCloud(){const st=$('#cloudState');if(!NATIVE.cloudReady()){st.tex
 window.onNative=(type,d)=>{try{
  if(type==='perm'){loadLocal().then(()=>{renderLists();toast(d.granted?local.length+' lagu ditemukan':'Izin ditolak. Bisa diubah di Pengaturan HP.')})}
  else if(type==='dl'){if(d.status==='progress'){jobs[d.id]={label:'Mengunduh '+(d.name||''),pct:d.pct};renderJobs()}
-  else{delete jobs[d.id];renderJobs();if(d.status==='done'){toast('Selesai: '+d.name);loadLocal().then(renderLists)}else toast('Gagal: '+d.msg)}}
+  else if(d.status==='uploading'){delete jobs[d.id];jobs['up:'+d.name]={label:'Menyimpan ke Cloudflare: '+d.name,pct:0};renderJobs()}
+  else{delete jobs[d.id];renderJobs();if(d.status==='done'){toast('Tersimpan di Cloudflare: '+d.name);NATIVE.listCloud()}else toast('Gagal: '+d.msg)}}
  else if(type==='up'){const k='up:'+d.name;if(d.status==='progress'){jobs[k]={label:'Mengunggah '+d.name,pct:d.pct};renderJobs()}
   else{delete jobs[k];renderJobs();if(d.status==='done'){toast('Tersimpan di Cloudflare');NATIVE.listCloud()}else toast('Gagal unggah: '+d.msg)}}
  else if(type==='cloud'){const st=$('#cloudState');if(d.ok){cloud=d.items.map(i=>{const p=parseName(i.key.split('/').pop());return{id:'c'+i.key,key:i.key,kind:'r2',title:p.title,artist:p.artist,size:+i.size||0,added:+i.added||0,dur:0,src:'/r2/'+encodeURIComponent(i.key)}}).sort((a,b)=>b.added-a.added);st.textContent=cloud.length+' lagu di Cloudflare R2.'}else st.textContent=d.msg;renderLists()}
