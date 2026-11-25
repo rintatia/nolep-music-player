@@ -1569,15 +1569,15 @@ function renderJobs(){const el=$('#jobs');if(!el)return;const ks=Object.keys(job
 function openSheet(html,onClick){$('#actSheet').innerHTML=html;$('#act').classList.add('on');$('#act').onclick=e=>{if(e.target===$('#act')){closeSheet();return}if(onClick)onClick(e)}}
 function closeSheet(){$('#act').classList.remove('on')}
 async function rescan(){if(!NATIVE)return;if(!NATIVE.hasPermission()){NATIVE.requestPermission();return}await loadLocal();renderLists();toast(local.length+' lagu ditemukan')}
-function openAddMenu(){openSheet(`<p>Tambah lagu</p><button class="opt" data-o="scan">${svg(IC.music)}Pindai ulang lagu di HP</button><button class="opt" data-o="link">${svg('<path d="M3.9 12a3.1 3.1 0 0 1 3.1-3.1h4V7H7a5 5 0 0 0 0 10h4v-1.9H7A3.1 3.1 0 0 1 3.9 12zM8 13h8v-2H8v2zm9-6h-4v1.9h4a3.1 3.1 0 0 1 0 6.2h-4V17h4a5 5 0 0 0 0-10z"/>')}Tambah dari link</button><button class="opt" data-o="cf">${svg(IC.cloud)}Pengaturan Cloudflare</button><button class="btn ghost" data-o="x" style="width:100%;margin-top:8px">Tutup</button>`,e=>{const o=e.target.closest('[data-o]');if(!o)return;closeSheet();const k=o.dataset.o;if(k==='scan')rescan();else if(k==='link')openLink('');else if(k==='cf')openSettings()})}
-function openLink(pre){const ready=NATIVE.cloudReady();
+function openAddMenu(){openSheet(`<p>Tambah lagu</p><button class="opt" data-o="scan">${svg(IC.music)}Pindai ulang lagu di HP</button><button class="opt" data-o="link">${svg('<path d="M3.9 12a3.1 3.1 0 0 1 3.1-3.1h4V7H7a5 5 0 0 0 0 10h4v-1.9H7A3.1 3.1 0 0 1 3.9 12zM8 13h8v-2H8v2zm9-6h-4v1.9h4a3.1 3.1 0 0 1 0 6.2h-4V17h4a5 5 0 0 0 0-10z"/>')}Tambah dari link</button><button class="opt" data-o="cloud">${svg(IC.cloud)}Pindai ulang lagu dari Cloudflare</button><button class="btn ghost" data-o="x" style="width:100%;margin-top:8px">Tutup</button>`,e=>{const o=e.target.closest('[data-o]');if(!o)return;closeSheet();const k=o.dataset.o;if(k==='scan')rescan();else if(k==='link')openLink('');else if(k==='cloud'){go('pustaka');setLib('cloud');nativeCloud()}})}
+function openLink(pre){
  openSheet(`<p>Tambah dari link</p><label class="fld"><span>Link file audio</span><input id="lkUrl" type="url" inputmode="url" placeholder="https://…/lagu.mp3" value="${esc(pre||'')}"></label>
- <label class="chk"><input type="checkbox" id="lkAuto" ${ready?'checked':''} ${ready?'':'disabled'}>Simpan otomatis ke Cloudflare${ready?'':' (atur dulu)'}</label>
- <div class="help">Bisa: link MP3/M4A/FLAC langsung, Google Drive (file dibagikan "siapa saja yang punya link"), Dropbox, Internet Archive, Bandcamp yang sudah dibeli. Tidak bisa: YouTube / YouTube Music.<br>Tips: dari browser, tekan Bagikan lalu pilih NPlayer.</div>
- <div class="row2"><button class="btn" data-o="go">Unduh</button><button class="btn ghost" data-o="x">Batal</button></div>`,e=>{const o=e.target.closest('[data-o]');if(!o)return;if(o.dataset.o==='x'){closeSheet();return}
-  const url=$('#lkUrl').value.trim();if(!/^https?:\/\/\S+$/i.test(url)){toast('Tempel link yang diawali https://');return}
-  if(/(^|\.)(youtube\.com|youtu\.be|music\.youtube\.com)/i.test(url.replace(/^https?:\/\//,'').split('/')[0])){toast('Link YouTube tidak didukung');return}
-  const id='dl'+Date.now();jobs[id]={label:'Mengunduh…',pct:-1};NATIVE.download(url,id,$('#lkAuto').checked);closeSheet();go('pustaka');setLib('lokal');renderJobs()});
+ <div class="help">File akan diunduh dari link lalu langsung disimpan ke Cloudflare. Bisa: link MP3/M4A/FLAC langsung, Google Drive (file dibagikan "siapa saja yang punya link"), Dropbox, Internet Archive, Bandcamp yang sudah dibeli. Tidak bisa: YouTube / YouTube Music.<br>Tips: dari browser, tekan Bagikan lalu pilih NPlayer.</div>
+ <div class="row2"><button class="btn" data-o="go">Simpan</button><button class="btn ghost" data-o="x">Batal</button></div>`,e=>{const o=e.target.closest('[data-o]');if(!o)return;if(o.dataset.o==='x'){closeSheet();return}
+  const url=$('#lkUrl').value.trim();if(!/^https?:\\/\\/\\S+$/i.test(url)){toast('Tempel link yang diawali https://');return}
+  if(/(^|\\.)(youtube\\.com|youtu\\.be|music\\.youtube\\.com)/i.test(url.replace(/^https?:\\/\\//,'').split('/')[0])){toast('Link YouTube tidak didukung');return}
+  if(!NATIVE.cloudReady()){toast('Atur token Cloud terlebih dahulu melalui menu unggah lagu.');return}
+  const id='dl'+Date.now();jobs[id]={label:'Menyiapkan unduhan…',pct:-1};NATIVE.download(url,id,true);closeSheet();go('pustaka');setLib('cloud');renderJobs()});
  setTimeout(()=>{const i=$('#lkUrl');if(i&&!pre)i.focus()},250)}
 function openSettings(){let c={};try{c=JSON.parse(NATIVE.getConfig())}catch(e){}
  openSheet(`<p>Pengaturan NPlayer Cloud</p>
