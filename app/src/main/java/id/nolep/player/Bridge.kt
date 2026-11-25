@@ -274,7 +274,7 @@ class Bridge(private val act: MainActivity) {
                 conn.instanceFollowRedirects = true
                 conn.connectTimeout = 20000
                 conn.readTimeout = 60000
-                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) NolepPlayer/1.0")
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android) NPlayer/1.0")
                 val code = conn.responseCode
                 if (code !in 200..299) {
                     ev("error", msg = "Server menjawab $code")

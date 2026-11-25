@@ -26,7 +26,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/release/app-release.apk "Nolep-${{ github.run_number }}.apk"
-          gh release create "v${{ github.run_number }}" "Nolep-${{ github.run_number }}.apk" \
-            --title "Nolep build ${{ github.run_number }}" \
-            --notes "APK siap pasang. Unduh file .apk di bawah, lalu buka di HP." --latest
+          cp app/build/outputs/apk/release/app-release.apk "NPlayer-${{ github.run_number }}.apk"
+          gh release create "v${{ github.run_number }}" "NPlayer-${{ github.run_number }}.apk" \
+            \
+            --title "NPlayer build ${{ github.run_number }}" --notes "APK siap pasang. Unduh file .apk di bawah, lalu buka di HP." --latest

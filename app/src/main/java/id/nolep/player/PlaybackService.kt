@@ -21,7 +21,7 @@ class PlaybackService : Service() {
         val pi = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val n: Notification = Notification.Builder(this, "play")
             .setSmallIcon(R.drawable.ic_note)
-            .setContentTitle(intent?.getStringExtra("title") ?: "Nolep")
+            .setContentTitle(intent?.getStringExtra("title") ?: "NPlayer")
             .setContentText(intent?.getStringExtra("artist") ?: "Sedang diputar")
             .setContentIntent(pi)
             .setOngoing(true)
