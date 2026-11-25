@@ -245,6 +245,7 @@ class Bridge(private val act: MainActivity) {
                 "dl", JSONObject().put("id", jobId).put("status", st).put("pct", pct).put("msg", msg).put("name", name).toString()
             )
             try {
+                if (!cloudReady()) throw IOException("Token Cloud belum diatur. Atur token melalui fitur unggah lagu.")
                 val u = normalize(url.trim())
                 val host = (Uri.parse(u).host ?: "").lowercase()
                 if (host.contains("youtube.") || host.contains("youtu.be") || host.endsWith("googlevideo.com")) {
@@ -290,8 +291,9 @@ class Bridge(private val act: MainActivity) {
                     }
                 }
                 if (!part.renameTo(dest)) throw IOException("Gagal menyimpan file")
-                ev("done", 100, name = dest.name)
-                if (autoUpload && cloudReady()) uploadFile(dest.name, FileSource(dest))
+                ev("uploading", 100, name = dest.name)
+                uploadFile(dest.name, FileSource(dest))
+                act.runOnUiThread { act.emitJs("cloudRefresh", "{}") }
             } catch (e: Exception) {
                 ev("error", msg = e.message ?: "Gagal mengunduh")
             }
