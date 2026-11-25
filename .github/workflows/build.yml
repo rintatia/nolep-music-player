@@ -27,4 +27,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp app/build/outputs/apk/release/app-release.apk NPlayer-7.1.apk
-          gh release create v7.1 NPlayer-7.1.apk --title "NPlayer V7.1" --notes "Rilis NPlayer V7.1. Arsip versi V7 tetap dipertahankan." 
+          if gh release view v7.1 >/dev/null 2>&1; then
+            gh release upload v7.1 NPlayer-7.1.apk --clobber
+          else
+            gh release create v7.1 NPlayer-7.1.apk --title "NPlayer V7.1" --notes "Rilis NPlayer V7.1. Arsip versi V7 tetap dipertahankan." --latest
+          fi
