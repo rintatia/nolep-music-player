@@ -64,6 +64,8 @@ class LimitedStream(private val inner: InputStream, private var left: Long) : In
 class Bridge(private val act: MainActivity) {
     companion object {
         const val HOST = "appassets.androidplatform.net"
+        private const val API = "https://nplayer-music-api.rintatia.workers.dev"
+        private const val API_TOKEN = "fcbe537cbd03ed4102dc316a550deeece6e232af1ada6fd5e649f275ba986029ca076fbd4ea1c83a73365f0010cba145"
         private val AUDIO_EXT = Regex("\\.(mp3|m4a|m4b|aac|ogg|oga|opus|wav|flac|webm|mp4|3gp|amr|awb|mid|midi|xmf|imy|ota|rtttl|mka|mkv|aif|aiff|wma|ape|alac|caf|dsf|ac3|eac3|weba)$", RegexOption.IGNORE_CASE)
     }
 
@@ -149,113 +151,53 @@ class Bridge(private val act: MainActivity) {
     @JavascriptInterface
     fun deleteFile(name: String): Boolean = File(musicDir, File(name).name).delete()
 
-    /* ---------- pengaturan Cloudflare ---------- */
+    /* ---------- Cloud API (NPlayer V7.1) ---------- */
     @JavascriptInterface
-    fun getConfig(): String = JSONObject()
-        .put("accountId", prefs.getString("accountId", ""))
-        .put("bucket", prefs.getString("bucket", ""))
-        .put("accessKey", prefs.getString("accessKey", ""))
-        .put("hasSecret", !prefs.getString("secret", "").isNullOrEmpty())
-        .put("auto", prefs.getBoolean("auto", true))
-        .toString()
-
+    fun getConfig(): String = JSONObject().put("auto", prefs.getBoolean("auto", true)).put("service", "NPlayer Cloud").toString()
     @JavascriptInterface
-    fun setConfig(json: String) {
-        val o = JSONObject(json)
-        val e = prefs.edit()
-        for (k in listOf("accountId", "bucket", "accessKey")) e.putString(k, o.optString(k).trim())
-        val s = o.optString("secret").trim()
-        if (s.isNotEmpty()) e.putString("secret", s)
-        e.putBoolean("auto", o.optBoolean("auto", true))
-        e.apply()
+    fun setConfig(json: String) { val o = JSONObject(json); prefs.edit().putBoolean("auto", o.optBoolean("auto", true)).apply() }
+    private fun api(path: String, method: String = "GET", range: String? = null, contentType: String? = null): HttpURLConnection {
+        val c = URL(API + path).openConnection() as HttpURLConnection
+        c.requestMethod = method; c.connectTimeout = 20000; c.readTimeout = 120000
+        c.setRequestProperty("Authorization", "Bearer " + API_TOKEN); c.setRequestProperty("User-Agent", "NPlayer/7.1 Android")
+        if (range != null) c.setRequestProperty("Range", range); if (contentType != null) c.setRequestProperty("Content-Type", contentType)
+        return c
     }
-
-    private fun r2(): R2? {
-        val a = prefs.getString("accountId", "") ?: ""
-        val b = prefs.getString("bucket", "") ?: ""
-        val k = prefs.getString("accessKey", "") ?: ""
-        val s = prefs.getString("secret", "") ?: ""
-        return if (a.isEmpty() || b.isEmpty() || k.isEmpty() || s.isEmpty()) null else R2(a, b, k, s)
-    }
-
-    @JavascriptInterface
-    fun cloudReady(): Boolean = r2() != null
-
-    @JavascriptInterface
-    fun testCloud() {
-        thread {
-            val r = r2()
-            val out = JSONObject()
-            if (r == null) out.put("ok", false).put("msg", "Isi semua kolom dulu")
-            else try {
-                val n = r.list("music/").size
-                out.put("ok", true).put("msg", "Tersambung. $n lagu di bucket.")
-            } catch (e: Exception) {
-                out.put("ok", false).put("msg", e.message ?: "Gagal tersambung")
-            }
-            emit("test", out.toString())
-        }
-    }
-
-    @JavascriptInterface
-    fun listCloud() {
-        thread {
-            val r = r2()
-            val out = JSONObject()
-            if (r == null) out.put("ok", false).put("msg", "Cloudflare belum diatur")
-            else try {
-                val a = JSONArray()
-                for (it in r.list("music/")) a.put(JSONObject().put("key", it.first).put("size", it.second).put("added", it.third))
-                out.put("ok", true).put("items", a)
-            } catch (e: Exception) {
-                out.put("ok", false).put("msg", e.message ?: "Gagal memuat cloud")
-            }
-            emit("cloud", out.toString())
-        }
-    }
-
-    @JavascriptInterface
-    fun deleteCloud(key: String) {
-        thread {
-            val out = JSONObject()
-            try {
-                r2()?.delete(key)
-                out.put("ok", true)
-            } catch (e: Exception) {
-                out.put("ok", false).put("msg", e.message ?: "Gagal menghapus")
-            }
-            emit("del", out.toString())
-        }
-    }
-
-    @JavascriptInterface
-    fun upload(kind: String, ref: String, name: String) {
-        thread {
-            val src: Source = if (kind == "media") {
-                MediaSource(act, ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, ref.toLong()))
-            } else FileSource(File(musicDir, File(ref).name))
-            uploadFile(safeName(name), src)
-        }
-    }
-
+    private fun apiKey(key: String) = Uri.encode(key, "/")
+    @JavascriptInterface fun cloudReady(): Boolean = true
+    @JavascriptInterface fun testCloud() { thread {
+        val out = JSONObject()
+        try { val c = api("/api/tracks"); val code = c.responseCode; val body = (if (code >= 400) c.errorStream else c.inputStream)?.bufferedReader()?.use { it.readText() } ?: ""
+            if (code !in 200..299) throw IOException("Cloud API menjawab $code")
+            val n = JSONObject(body).optJSONArray("items")?.length() ?: 0; out.put("ok", true).put("msg", "Tersambung. $n lagu di cloud.")
+        } catch (e: Exception) { out.put("ok", false).put("msg", e.message ?: "Gagal tersambung") }; emit("test", out.toString())
+    } }
+    @JavascriptInterface fun listCloud() { thread {
+        val out = JSONObject()
+        try { val c = api("/api/tracks"); val code = c.responseCode; val body = (if (code >= 400) c.errorStream else c.inputStream)?.bufferedReader()?.use { it.readText() } ?: ""
+            if (code !in 200..299) throw IOException("Cloud API menjawab $code"); out.put("ok", true).put("items", JSONObject(body).optJSONArray("items") ?: JSONArray())
+        } catch (e: Exception) { out.put("ok", false).put("msg", e.message ?: "Gagal memuat cloud") }; emit("cloud", out.toString())
+    } }
+    @JavascriptInterface fun deleteCloud(key: String) { thread {
+        val out = JSONObject()
+        try { val c = api("/api/tracks/" + apiKey(key), "DELETE"); if (c.responseCode !in 200..299) throw IOException("Gagal menghapus (${c.responseCode})"); out.put("ok", true) }
+        catch (e: Exception) { out.put("ok", false).put("msg", e.message ?: "Gagal menghapus") }; emit("del", out.toString())
+    } }
+    @JavascriptInterface fun upload(kind: String, ref: String, name: String) { thread {
+        try { val src: Source = if (kind == "media") MediaSource(act, ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, ref.toLong())) else FileSource(File(musicDir, File(ref).name)); uploadFile(safeName(name), src) }
+        catch (e: Exception) { emit("up", JSONObject().put("name", safeName(name)).put("status", "error").put("msg", e.message ?: "Gagal membuka file").toString()) }
+    } }
     private fun uploadFile(name: String, src: Source) {
-        fun ev(st: String, pct: Int = 0, msg: String = "") = emit(
-            "up", JSONObject().put("name", name).put("status", st).put("pct", pct).put("msg", msg).toString()
-        )
-        val r = r2()
-        if (r == null) {
-            ev("error", msg = "Cloudflare belum diatur")
-            return
-        }
-        try {
-            ev("progress", 0)
-            r.put("music/$name", src, mimeOf(name)) { p -> ev("progress", p) }
-            ev("done", 100)
-        } catch (e: Exception) {
-            ev("error", msg = e.message ?: "Gagal mengunggah")
-        }
+        fun ev(st: String, pct: Int = 0, msg: String = "") = emit("up", JSONObject().put("name", name).put("status", st).put("pct", pct).put("msg", msg).toString())
+        try { ev("progress", 0); val c = api("/api/tracks/" + apiKey("music/$name"), "PUT", contentType = mimeOf(name)); c.doOutput = true
+            val len = src.length(); if (len >= 0) c.setFixedLengthStreamingMode(len) else c.setChunkedStreamingMode(65536)
+            c.outputStream.use { out -> src.open().use { input -> val buf = ByteArray(65536); var done = 0L; var last = -5
+                while (true) { val n = input.read(buf); if (n < 0) break; out.write(buf, 0, n); done += n; if (len > 0) { val p = (done * 100 / len).toInt(); if (p >= last + 5) { last = p; ev("progress", p) } } }
+            } }
+            val code = c.responseCode; val body = (if (code >= 400) c.errorStream else c.inputStream)?.bufferedReader()?.use { it.readText() } ?: ""
+            if (code !in 200..299) throw IOException("Cloud API menjawab $code: $body"); ev("done", 100)
+        } catch (e: Exception) { ev("error", msg = e.message ?: "Gagal mengunggah") }
     }
-
     /* ---------- unduh dari link ---------- */
     @JavascriptInterface
     fun download(url: String, jobId: String, autoUpload: Boolean) {
@@ -310,7 +252,7 @@ class Bridge(private val act: MainActivity) {
                 }
                 if (!part.renameTo(dest)) throw IOException("Gagal menyimpan file")
                 ev("done", 100, name = dest.name)
-                if (autoUpload && r2() != null) uploadFile(dest.name, FileSource(dest))
+                if (autoUpload && cloudReady()) uploadFile(dest.name, FileSource(dest))
             } catch (e: Exception) {
                 ev("error", msg = e.message ?: "Gagal mengunduh")
             }
@@ -411,9 +353,8 @@ class Bridge(private val act: MainActivity) {
                     "media" -> p.setDataSource(act, ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, ref.toLong()))
                     "file" -> p.setDataSource(File(musicDir, File(ref).name).absolutePath)
                     "r2" -> {
-                        val r = r2() ?: throw IOException("Cloudflare belum diatur")
-                        val (url, headers) = r.signedGet(ref)
-                        p.setDataSource(act, Uri.parse(url), headers)
+                        val url = API + "/api/stream/" + apiKey(ref)
+                        p.setDataSource(act, Uri.parse(url), mapOf("Authorization" to "Bearer " + API_TOKEN))
                     }
                     else -> throw IOException("Sumber tidak dikenal")
                 }
@@ -541,8 +482,7 @@ class Bridge(private val act: MainActivity) {
     }
 
     private fun proxyR2(key: String, req: WebResourceRequest): WebResourceResponse {
-        val r = r2() ?: return WebResourceResponse("text/plain", "utf-8", 404, "Not Found", mapOf(), "".byteInputStream())
-        val c = r.get(key, rangeOf(req))
+        val c = api("/api/stream/" + apiKey(key), "GET", rangeOf(req))
         val code = c.responseCode
         val h = mutableMapOf("Accept-Ranges" to "bytes", "Access-Control-Allow-Origin" to "*")
         c.getHeaderField("Content-Range")?.let { h["Content-Range"] = it }
