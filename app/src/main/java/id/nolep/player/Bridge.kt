@@ -423,16 +423,19 @@ class Bridge(private val act: MainActivity) {
     /* ---------- sumber audio untuk pemutar native ---------- */
     private fun setSource(p: MediaPlayer, kind: String, ref: String) {
         when (kind) {
-            "media" -> p.setDataSource(act, ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, ref.toLong()))
+            "media" -> p.setDataSource(act.applicationContext, ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, ref.toLong()))
             "file" -> p.setDataSource(File(musicDir, File(ref).name).absolutePath)
-            "r2" -> p.setDataSource(act, Uri.parse(API + "/api/stream/" + apiKey(ref)), mapOf("Authorization" to "Bearer " + apiToken()))
+            "r2" -> p.setDataSource(act.applicationContext, Uri.parse(API + "/api/stream/" + apiKey(ref)), mapOf("Authorization" to "Bearer " + apiToken()))
             else -> throw IOException("Sumber tidak dikenal")
         }
     }
 
     /* ---------- Mesin putar (lihat Engine.kt) ---------- */
     val engine: Engine by lazy {
-        Engine(act, { p, k, r -> setSource(p, k, r) }, { i -> emit("eng", "{\"index\":$i}") })
+        (Engine.shared ?: Engine(act.applicationContext).also { Engine.shared = it }).also {
+            it.source = { p, k, r -> setSource(p, k, r) }
+            it.onTrack = { i -> emit("eng", "{\"index\":$i}") }
+        }
     }
 
     @JavascriptInterface

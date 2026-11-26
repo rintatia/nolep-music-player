@@ -1,6 +1,16 @@
 package id.nolep.player
 
 import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.media.MediaMetadata
+import android.media.session.MediaSession
+import android.media.session.PlaybackState
+import android.net.wifi.WifiManager
+import android.os.Build
+import java.io.IOException
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
@@ -19,11 +29,14 @@ import kotlin.math.sqrt
  * jalan dan pindah lagu sendiri saat layar mati atau memakai aplikasi lain.
  * WebView hanya mengirim perintah dan membaca status + data suara untuk animasi.
  */
-class Engine(
-    private val ctx: Context,
-    private val source: (MediaPlayer, String, String) -> Unit,
-    private val onTrack: (Int) -> Unit
-) {
+class Engine(private val ctx: Context) {
+    companion object {
+        /** Satu mesin untuk seluruh aplikasi: tetap hidup walau layar aplikasi ditutup sistem saat HP terkunci */
+        @Volatile var shared: Engine? = null
+    }
+
+    var source: (MediaPlayer, String, String) -> Unit = { _, _, _ -> throw IOException("Sumber belum siap") }
+    var onTrack: (Int) -> Unit = {}
     class Item(val kind: String, val ref: String, val title: String, val artist: String)
 
     private var items: List<Item> = emptyList()
@@ -40,6 +53,81 @@ class Engine(
     private var serviceOn = false
     private val handler = Handler(Looper.getMainLooper())
     private val idleStop = Runnable { if (!wantPlay) stopService() }
+
+    /* ---------- media session: mendaftarkan NPlayer sebagai pemutar musik ke Android/MIUI ---------- */
+    val session = MediaSession(ctx, "NPlayer").apply {
+        setCallback(object : MediaSession.Callback() {
+            override fun onPlay() = play()
+            override fun onPause() = pause()
+            override fun onStop() = pause()
+            override fun onSkipToNext() = next()
+            override fun onSkipToPrevious() = prev()
+            override fun onSeekTo(pos: Long) = seek(pos.toInt())
+        })
+        isActive = true
+    }
+
+    /* ---------- audio focus ---------- */
+    private val am = ctx.getSystemService(AudioManager::class.java)
+    private var hasFocus = false
+    private var resumeOnGain = false
+    private var ducked = false
+    private val focusReq = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+        .setAudioAttributes(
+            AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
+        )
+        .setWillPauseWhenDucked(false)
+        .setOnAudioFocusChangeListener({ c -> handler.post { onFocus(c) } }, handler)
+        .build()
+
+    private fun requestFocus(): Boolean {
+        if (hasFocus) return true
+        hasFocus = try { am.requestAudioFocus(focusReq) != AudioManager.AUDIOFOCUS_REQUEST_FAILED } catch (e: Exception) { true }
+        return hasFocus
+    }
+
+    private fun onFocus(c: Int) {
+        when (c) {
+            AudioManager.AUDIOFOCUS_LOSS -> { hasFocus = false; resumeOnGain = false; pause() }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> { if (wantPlay) { resumeOnGain = true; pause() } }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> { try { mp?.setVolume(.25f, .25f) } catch (e: Exception) { }; ducked = true }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                hasFocus = true
+                if (ducked) { try { mp?.setVolume(1f, 1f) } catch (e: Exception) { }; ducked = false }
+                if (resumeOnGain) { resumeOnGain = false; play() }
+            }
+        }
+    }
+
+    /* ---------- WiFi tetap bangun untuk lagu Cloud, headset dicabut = jeda ---------- */
+    private val wifi: WifiManager.WifiLock? = try {
+        @Suppress("DEPRECATION")
+        (ctx.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager)
+            .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "nplayer:stream").apply { setReferenceCounted(false) }
+    } catch (e: Exception) { null }
+    private val cpu = (ctx.getSystemService(Context.POWER_SERVICE) as PowerManager)
+        .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "nplayer:play").apply { setReferenceCounted(false) }
+    private var noisyOn = false
+    private val noisy = object : BroadcastReceiver() {
+        override fun onReceive(c: Context?, i: Intent?) {
+            if (i?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) pause()
+        }
+    }
+
+    private fun holdLocks(on: Boolean) {
+        val cloud = items.getOrNull(index)?.kind == "r2"
+        // CPU tetap bangun hanya selama musik diputar (termasuk jeda singkat saat ganti lagu); dilepas saat dijeda
+        try { if (on) cpu.acquire(4 * 60 * 60 * 1000L) else if (cpu.isHeld) cpu.release() } catch (e: Exception) { }
+        try { if (on && cloud) { if (wifi?.isHeld == false) wifi.acquire() } else if (wifi?.isHeld == true) wifi.release() } catch (e: Exception) { }
+        try {
+            if (on && !noisyOn) {
+                val f = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+                if (Build.VERSION.SDK_INT >= 33) ctx.registerReceiver(noisy, f, Context.RECEIVER_EXPORTED) else ctx.registerReceiver(noisy, f)
+                noisyOn = true
+            } else if (!on && noisyOn) { ctx.unregisterReceiver(noisy); noisyOn = false }
+        } catch (e: Exception) { }
+    }
 
     fun setQueue(list: List<Item>) {
         items = list
@@ -70,7 +158,7 @@ class Engine(
             p.setOnPreparedListener {
                 ready = true
                 if (pendingSeek > 0) it.seekTo(pendingSeek)
-                if (wantPlay) it.start()
+                if (wantPlay && requestFocus()) it.start()
                 attachViz(it.audioSessionId)
                 notifyState()
             }
@@ -103,7 +191,24 @@ class Engine(
         }
     }
 
+    fun next() {
+        if (items.isEmpty()) return
+        load(if (index + 1 < items.size) index + 1 else 0, 0, true, 0)
+    }
+
+    fun prev() {
+        if (items.isEmpty()) return
+        val pos = try { if (ready) mp?.currentPosition ?: 0 else 0 } catch (e: Exception) { 0 }
+        if (pos > 3000) { seek(0); notifyState(); return }
+        load(if (index > 0) index - 1 else items.size - 1, 0, true, 0)
+    }
+
+    fun toggle() = if (wantPlay) pause() else play()
+
+    fun isActive() = wantPlay
+
     fun play() {
+        requestFocus()
         wantPlay = true
         val p = mp
         if (p == null) {
@@ -122,6 +227,7 @@ class Engine(
 
     fun seek(ms: Int) {
         if (ready) try { mp?.seekTo(ms) } catch (e: Exception) { } else pendingSeek = ms
+        updateSession()
     }
 
     fun state(): String {
@@ -145,6 +251,13 @@ class Engine(
 
     fun reattachViz() { if (sid != 0) attachViz(sid) }
 
+    /** Saat aplikasi tidak terlihat, pembacaan suara untuk animasi dimatikan supaya hemat baterai */
+    private var vizOn = true
+    fun vizActive(on: Boolean) {
+        vizOn = on
+        try { viz?.enabled = on } catch (e: Exception) { }
+    }
+
     private fun attachViz(s: Int) {
         sid = s
         try { viz?.release() } catch (e: Exception) { }
@@ -153,7 +266,7 @@ class Engine(
         try {
             val v = Visualizer(s)
             v.captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(1024)
-            v.enabled = true
+            v.enabled = vizOn
             viz = v
         } catch (e: Exception) {
             viz = null
@@ -205,6 +318,8 @@ class Engine(
     /* ---------- notifikasi & layanan latar depan ---------- */
     private fun notifyState() {
         val playing = wantPlay
+        holdLocks(playing)
+        updateSession()
         handler.removeCallbacks(idleStop)
         if (!playing && serviceOn) handler.postDelayed(idleStop, 10 * 60 * 1000L)
         val q = items.getOrNull(index)
@@ -213,21 +328,57 @@ class Engine(
         if (playing) {
             if (!serviceOn) {
                 try {
-                    ctx.startForegroundService(Intent(ctx, PlaybackService::class.java).putExtra("title", title).putExtra("artist", artist))
+                    ctx.startForegroundService(Intent(ctx, PlaybackService::class.java))
                     serviceOn = true
                 } catch (e: Exception) {
                 }
             }
             try {
-                ctx.getSystemService(NotificationManager::class.java).notify(1, PlaybackService.build(ctx, title, artist, true))
+                ctx.getSystemService(NotificationManager::class.java).notify(1, PlaybackService.build(ctx, title, artist, true, session.sessionToken))
             } catch (e: Exception) {
             }
         } else if (serviceOn) {
             try {
-                ctx.getSystemService(NotificationManager::class.java).notify(1, PlaybackService.build(ctx, title, artist, false))
+                ctx.getSystemService(NotificationManager::class.java).notify(1, PlaybackService.build(ctx, title, artist, false, session.sessionToken))
             } catch (e: Exception) {
             }
         }
+    }
+
+    fun notification() = items.getOrNull(index).let {
+        PlaybackService.build(ctx, it?.title ?: "NPlayer", it?.artist ?: "", wantPlay, session.sessionToken)
+    }
+
+    private var metaKey = ""
+    private fun updateSession() {
+        try {
+            val q = items.getOrNull(index)
+            var pos = 0L
+            var dur = 0L
+            if (ready) try { pos = (mp?.currentPosition ?: 0).toLong(); dur = (mp?.duration ?: 0).toLong() } catch (e: Exception) { }
+            val key = "$index:${q?.title}:$dur"
+            if (key != metaKey) {
+                metaKey = key
+                session.setMetadata(
+                    MediaMetadata.Builder()
+                        .putString(MediaMetadata.METADATA_KEY_TITLE, q?.title ?: "NPlayer")
+                        .putString(MediaMetadata.METADATA_KEY_ARTIST, q?.artist ?: "")
+                        .putString(MediaMetadata.METADATA_KEY_ALBUM, "NPlayer")
+                        .putLong(MediaMetadata.METADATA_KEY_DURATION, dur)
+                        .build()
+                )
+            }
+            session.setPlaybackState(
+                PlaybackState.Builder()
+                    .setActions(
+                        PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_PLAY_PAUSE or
+                            PlaybackState.ACTION_SKIP_TO_NEXT or PlaybackState.ACTION_SKIP_TO_PREVIOUS or
+                            PlaybackState.ACTION_SEEK_TO or PlaybackState.ACTION_STOP
+                    )
+                    .setState(if (wantPlay) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED, pos, if (wantPlay) 1f else 0f)
+                    .build()
+            )
+        } catch (e: Exception) { }
     }
 
     fun stopService() {
@@ -245,7 +396,13 @@ class Engine(
     }
 
     fun release() {
+        wantPlay = false
         releasePlayer()
+        holdLocks(false)
         stopService()
+        try { am.abandonAudioFocusRequest(focusReq) } catch (e: Exception) { }
+        hasFocus = false
+        try { session.release() } catch (e: Exception) { }
+        if (shared === this) shared = null
     }
 }

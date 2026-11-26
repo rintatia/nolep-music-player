@@ -66,6 +66,7 @@ class MainActivity : Activity() {
             web.resumeTimers()
             emitJs("fg", "{}")
         }
+        Engine.shared?.vizActive(true)
     }
 
     /* Saat tidak terlihat, tampilan & animasi dihentikan total supaya hemat baterai; musik tetap diputar oleh Engine */
@@ -74,11 +75,16 @@ class MainActivity : Activity() {
             web.onPause()
             web.pauseTimers()
         }
+        Engine.shared?.vizActive(false)
         super.onStop()
     }
 
     override fun onDestroy() {
-        if (::bridge.isInitialized) bridge.engine.release()
+        // Layar aplikasi bisa ditutup sistem saat HP terkunci: musik yang sedang diputar TIDAK ikut dimatikan
+        Engine.shared?.let { e ->
+            e.onTrack = {}
+            if (!e.isActive()) e.release()
+        }
         super.onDestroy()
     }
 
