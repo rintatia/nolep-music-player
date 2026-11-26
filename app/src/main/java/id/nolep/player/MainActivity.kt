@@ -61,12 +61,29 @@ class MainActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
-        if (::web.isInitialized) emitJs("fg", "{}")
+        if (::web.isInitialized) {
+            web.onResume()
+            web.resumeTimers()
+            emitJs("fg", "{}")
+        }
     }
 
+    /* Saat tidak terlihat, tampilan & animasi dihentikan total supaya hemat baterai; musik tetap diputar oleh Engine */
     override fun onStop() {
-        if (::web.isInitialized) emitJs("bg", "{}")
+        if (::web.isInitialized) {
+            web.onPause()
+            web.pauseTimers()
+        }
         super.onStop()
+    }
+
+    override fun onDestroy() {
+        if (::bridge.isInitialized) bridge.engine.release()
+        super.onDestroy()
+    }
+
+    fun askVizPermission() {
+        runOnUiThread { requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 8) }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -141,6 +158,11 @@ class MainActivity : Activity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 8) {
+            bridge.engine.reattachViz()
+            emitJs("viz", JSONObject().put("granted", bridge.engine.vizAllowed()).toString())
+            return
+        }
         emitJs("perm", JSONObject().put("granted", bridge.hasPerm()).toString())
     }
 

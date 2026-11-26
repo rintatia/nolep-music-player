@@ -420,15 +420,7 @@ class Bridge(private val act: MainActivity) {
         }
     }
 
-    /* ---------- Pemutar latar belakang: antrean dimainkan native saat aplikasi tidak terlihat ---------- */
-    private class QItem(val kind: String, val ref: String, val title: String, val artist: String)
-    private var bq: List<QItem> = emptyList()
-    @Volatile private var bi = 0
-    private var brep = "off"
-    private var bp: MediaPlayer? = null
-    @Volatile private var bpReady = false
-    @Volatile private var bgActive = false
-
+    /* ---------- sumber audio untuk pemutar native ---------- */
     private fun setSource(p: MediaPlayer, kind: String, ref: String) {
         when (kind) {
             "media" -> p.setDataSource(act, ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, ref.toLong()))
@@ -438,94 +430,48 @@ class Bridge(private val act: MainActivity) {
         }
     }
 
-    @JavascriptInterface
-    fun bgStart(json: String) {
-        act.runOnUiThread {
-            try {
-                val o = JSONObject(json)
-                val arr = o.getJSONArray("items")
-                val l = mutableListOf<QItem>()
-                for (k in 0 until arr.length()) {
-                    val it = arr.getJSONObject(k)
-                    l.add(QItem(it.optString("kind"), it.optString("ref"), it.optString("title"), it.optString("artist")))
-                }
-                bq = l
-                brep = o.optString("repeat", "off")
-                bgActive = true
-                bPlay(o.optInt("index", 0), o.optInt("pos", 0), 0)
-            } catch (e: Exception) {
-                bgActive = false
-            }
-        }
-    }
-
-    private fun bPlay(i: Int, startMs: Int, tries: Int) {
-        try { bp?.release() } catch (e: Exception) { }
-        bp = null
-        bpReady = false
-        if (!bgActive || i < 0 || i >= bq.size || tries > bq.size) return
-        bi = i
-        val q = bq[i]
-        try {
-            val p = MediaPlayer()
-            p.setAudioAttributes(
-                AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
-            )
-            setSource(p, q.kind, q.ref)
-            p.setOnPreparedListener {
-                bpReady = true
-                if (startMs > 0) it.seekTo(startMs)
-                it.start()
-            }
-            p.setOnCompletionListener { bNext() }
-            p.setOnErrorListener { _, _, _ ->
-                bpReady = false
-                act.runOnUiThread { bPlay(bi + 1, 0, tries + 1) }
-                true
-            }
-            bp = p
-            p.prepareAsync()
-            setPlaying(true, q.title, q.artist)
-        } catch (e: Exception) {
-            bPlay(i + 1, 0, tries + 1)
-        }
-    }
-
-    private fun bNext() {
-        when {
-            brep == "one" -> bPlay(bi, 0, 0)
-            bi + 1 < bq.size -> bPlay(bi + 1, 0, 0)
-            brep == "all" -> bPlay(0, 0, 0)
-            else -> {
-                bpReady = false
-                try { bp?.release() } catch (e: Exception) { }
-                bp = null
-            }
-        }
+    /* ---------- Mesin putar (lihat Engine.kt) ---------- */
+    val engine: Engine by lazy {
+        Engine(act, { p, k, r -> setSource(p, k, r) }, { i -> emit("eng", "{\"index\":$i}") })
     }
 
     @JavascriptInterface
-    fun bgStop(): String {
-        val p = bp
-        var pos = 0
-        var playing = false
-        if (p != null && bpReady) {
-            try {
-                pos = p.currentPosition
-                playing = p.isPlaying
-            } catch (e: Exception) {
-            }
-        } else if (p != null) playing = true
-        val res = JSONObject().put("active", bgActive).put("index", bi).put("pos", pos).put("playing", playing).toString()
-        bgActive = false
-        act.runOnUiThread {
-            try { bp?.release() } catch (e: Exception) { }
-            bp = null
-            bpReady = false
+    fun eQueue(json: String) {
+        val arr = JSONArray(json)
+        val l = mutableListOf<Engine.Item>()
+        for (k in 0 until arr.length()) {
+            val o = arr.getJSONObject(k)
+            l.add(Engine.Item(o.optString("kind"), o.optString("ref"), o.optString("title"), o.optString("artist")))
         }
-        return res
+        act.runOnUiThread { engine.setQueue(l) }
     }
+
+    @JavascriptInterface
+    fun eJump(i: Int, ms: Int, autoplay: Boolean) = act.runOnUiThread { engine.jump(i, ms, autoplay) }
+
+    @JavascriptInterface
+    fun eResume() = act.runOnUiThread { engine.play() }
+
+    @JavascriptInterface
+    fun ePause() = act.runOnUiThread { engine.pause() }
+
+    @JavascriptInterface
+    fun eSeek(ms: Int) = act.runOnUiThread { engine.seek(ms) }
+
+    @JavascriptInterface
+    fun eRepeat(mode: String) = act.runOnUiThread { engine.repeat = mode }
+
+    @JavascriptInterface
+    fun eState(): String = engine.state()
+
+    @JavascriptInterface
+    fun eViz(): String = engine.vizData()
+
+    @JavascriptInterface
+    fun vizAllowed(): Boolean = engine.vizAllowed()
+
+    @JavascriptInterface
+    fun requestViz() = act.askVizPermission()
 
     @JavascriptInterface
     fun nPause() = act.runOnUiThread { try { if (mpReady) mp?.pause() } catch (e: Exception) { } }
