@@ -13,7 +13,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = run
-        versionName = "7.1.$run"
+        versionName = rootProject.file("version.txt").readText().trim() + ".$run"
     }
     signingConfigs {
         create("nolep") {

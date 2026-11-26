@@ -22,13 +22,15 @@ jobs:
           gradle-version: '8.9'
       - name: Build
         run: gradle assembleRelease --no-daemon --stacktrace
-      - name: Rilis NPlayer V7.1
+      - name: Rilis NPlayer
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp app/build/outputs/apk/release/app-release.apk NPlayer-7.1.apk
-          if gh release view v7.1 >/dev/null 2>&1; then
-            gh release upload v7.1 NPlayer-7.1.apk --clobber
+          VER=$(tr -d '[:space:]' < version.txt)
+          cp app/build/outputs/apk/release/app-release.apk "NPlayer-V${VER}.apk"
+          if gh release view "v${VER}" >/dev/null 2>&1; then
+            gh release upload "v${VER}" "NPlayer-V${VER}.apk" --clobber
           else
-            gh release create v7.1 NPlayer-7.1.apk --title "NPlayer V7.1" --notes "Rilis NPlayer V7.1. Arsip versi V7 tetap dipertahankan." --latest
+            gh release create "v${VER}" "NPlayer-V${VER}.apk" --title "NPlayer V${VER}" \
+              --notes "NPlayer V${VER}. Unduh file .apk di bawah, lalu pasang di atas versi sebelumnya." --latest
           fi
