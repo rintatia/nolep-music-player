@@ -627,7 +627,12 @@ function updMini(){const t=cur(),onPlayer=$('#v-putar').classList.contains('on')
 const PLAY='<path d="M8.2 6.3v11.4a1.3 1.3 0 0 0 2 1.1l8.9-5.7a1.3 1.3 0 0 0 0-2.2l-8.9-5.7a1.3 1.3 0 0 0-2 1.1z"/>',PAUSE='<rect x="6.2" y="5" width="4.3" height="14" rx="1.8"/><rect x="13.5" y="5" width="4.3" height="14" rx="1.8"/>';
 let lastPlaying=null;
 function syncPlay(){const p=isPlaying();$('#icPlay').innerHTML=p?PAUSE:PLAY;$('#icMini').innerHTML=p?PAUSE:PLAY;$('#bPlay').classList.toggle('on',p);if(p&&actx&&actx.state==='suspended')actx.resume().catch(()=>{});$('#bPlay').setAttribute('aria-label',p?'Jeda':'Putar')}
-function onPlayState(){syncPlay();const p=isPlaying();if(p===lastPlaying)return;lastPlaying=p;if(NATIVE){const t=cur();try{NATIVE.setPlaying(p,t?t.title:'NPlayer',t?t.artist:'')}catch(e){}}if($('#v-pustaka').classList.contains('on'))renderLists()}
+let svcT=null,svcKey='';
+/* Layanan latar tetap hidup di antara lagu (jeda singkat saat ganti lagu tidak mematikannya), supaya HP tidak membekukan aplikasi sebelum lagu berikutnya mulai */
+function onPlayState(){syncPlay();const p=isPlaying(),t=cur();
+ if(NATIVE){if(p){if(svcT){clearTimeout(svcT);svcT=null}const key=t?t.id:'';if(key!==svcKey){svcKey=key;try{NATIVE.setPlaying(true,t?t.title:'NPlayer',t?t.artist:'')}catch(e){}}}
+  else if(!svcT&&svcKey){svcT=setTimeout(()=>{svcT=null;if(!isPlaying()){svcKey='';try{NATIVE.setPlaying(false,'','')}catch(e){}}},20000)}}
+ if(p===lastPlaying)return;lastPlaying=p;if($('#v-pustaka').classList.contains('on'))renderLists()}
 function syncModes(){$('#bShuf').classList.toggle('act',shuffle);$('#bRep').classList.toggle('act',repeat!=='off');$('#repOne').textContent=repeat==='one'?'1':'';$('#repTxt').textContent={off:'Ulang',all:'Ulang semua',one:'Ulang satu'}[repeat]}
 au.onplay=au.onpause=onPlayState;
 au.onended=()=>next(true);
