@@ -59,6 +59,16 @@ class MainActivity : Activity() {
         handleShare(intent)
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (::web.isInitialized) emitJs("fg", "{}")
+    }
+
+    override fun onStop() {
+        if (::web.isInitialized) emitJs("bg", "{}")
+        super.onStop()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleShare(intent)

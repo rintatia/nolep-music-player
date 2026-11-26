@@ -420,6 +420,113 @@ class Bridge(private val act: MainActivity) {
         }
     }
 
+    /* ---------- Pemutar latar belakang: antrean dimainkan native saat aplikasi tidak terlihat ---------- */
+    private class QItem(val kind: String, val ref: String, val title: String, val artist: String)
+    private var bq: List<QItem> = emptyList()
+    @Volatile private var bi = 0
+    private var brep = "off"
+    private var bp: MediaPlayer? = null
+    @Volatile private var bpReady = false
+    @Volatile private var bgActive = false
+
+    private fun setSource(p: MediaPlayer, kind: String, ref: String) {
+        when (kind) {
+            "media" -> p.setDataSource(act, ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, ref.toLong()))
+            "file" -> p.setDataSource(File(musicDir, File(ref).name).absolutePath)
+            "r2" -> p.setDataSource(act, Uri.parse(API + "/api/stream/" + apiKey(ref)), mapOf("Authorization" to "Bearer " + apiToken()))
+            else -> throw IOException("Sumber tidak dikenal")
+        }
+    }
+
+    @JavascriptInterface
+    fun bgStart(json: String) {
+        act.runOnUiThread {
+            try {
+                val o = JSONObject(json)
+                val arr = o.getJSONArray("items")
+                val l = mutableListOf<QItem>()
+                for (k in 0 until arr.length()) {
+                    val it = arr.getJSONObject(k)
+                    l.add(QItem(it.optString("kind"), it.optString("ref"), it.optString("title"), it.optString("artist")))
+                }
+                bq = l
+                brep = o.optString("repeat", "off")
+                bgActive = true
+                bPlay(o.optInt("index", 0), o.optInt("pos", 0), 0)
+            } catch (e: Exception) {
+                bgActive = false
+            }
+        }
+    }
+
+    private fun bPlay(i: Int, startMs: Int, tries: Int) {
+        try { bp?.release() } catch (e: Exception) { }
+        bp = null
+        bpReady = false
+        if (!bgActive || i < 0 || i >= bq.size || tries > bq.size) return
+        bi = i
+        val q = bq[i]
+        try {
+            val p = MediaPlayer()
+            p.setAudioAttributes(
+                AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()
+            )
+            setSource(p, q.kind, q.ref)
+            p.setOnPreparedListener {
+                bpReady = true
+                if (startMs > 0) it.seekTo(startMs)
+                it.start()
+            }
+            p.setOnCompletionListener { bNext() }
+            p.setOnErrorListener { _, _, _ ->
+                bpReady = false
+                act.runOnUiThread { bPlay(bi + 1, 0, tries + 1) }
+                true
+            }
+            bp = p
+            p.prepareAsync()
+            setPlaying(true, q.title, q.artist)
+        } catch (e: Exception) {
+            bPlay(i + 1, 0, tries + 1)
+        }
+    }
+
+    private fun bNext() {
+        when {
+            brep == "one" -> bPlay(bi, 0, 0)
+            bi + 1 < bq.size -> bPlay(bi + 1, 0, 0)
+            brep == "all" -> bPlay(0, 0, 0)
+            else -> {
+                bpReady = false
+                try { bp?.release() } catch (e: Exception) { }
+                bp = null
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun bgStop(): String {
+        val p = bp
+        var pos = 0
+        var playing = false
+        if (p != null && bpReady) {
+            try {
+                pos = p.currentPosition
+                playing = p.isPlaying
+            } catch (e: Exception) {
+            }
+        } else if (p != null) playing = true
+        val res = JSONObject().put("active", bgActive).put("index", bi).put("pos", pos).put("playing", playing).toString()
+        bgActive = false
+        act.runOnUiThread {
+            try { bp?.release() } catch (e: Exception) { }
+            bp = null
+            bpReady = false
+        }
+        return res
+    }
+
     @JavascriptInterface
     fun nPause() = act.runOnUiThread { try { if (mpReady) mp?.pause() } catch (e: Exception) { } }
 
