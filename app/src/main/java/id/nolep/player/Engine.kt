@@ -104,7 +104,7 @@ class Engine(private val ctx: Context) {
     private val wifi: WifiManager.WifiLock? = try {
         @Suppress("DEPRECATION")
         (ctx.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager)
-            .createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "nplayer:stream").apply { setReferenceCounted(false) }
+            .createWifiLock(WifiManager.WIFI_MODE_FULL, "nplayer:stream").apply { setReferenceCounted(false) }
     } catch (e: Exception) { null }
     private val cpu = (ctx.getSystemService(Context.POWER_SERVICE) as PowerManager)
         .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "nplayer:play").apply { setReferenceCounted(false) }
@@ -265,7 +265,7 @@ class Engine(private val ctx: Context) {
         if (!vizAllowed()) return
         try {
             val v = Visualizer(s)
-            v.captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(1024)
+            v.captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(512)
             v.enabled = vizOn
             viz = v
         } catch (e: Exception) {

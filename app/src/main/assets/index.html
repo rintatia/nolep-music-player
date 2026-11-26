@@ -183,6 +183,8 @@ button{cursor:pointer;border:0;background:none;padding:0}
 .btn.ghost{background:var(--soft);color:var(--ink)}
 .toast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:99px;font-size:13px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:10;max-width:90vw;text-align:center}
 .toast.on{opacity:1}
+html.eco *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}html.eco{--glass:color-mix(in srgb,var(--card) 86%,transparent)}
+.ecoRow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px;padding:10px 12px;border-radius:18px}.ecoRow b{display:block;font-size:14px}.ecoRow small{opacity:.7;font-size:12px}.ecoSw{flex:none;width:50px;height:30px;border-radius:99px;border:0;background:color-mix(in srgb,var(--ink) 20%,transparent);position:relative;cursor:pointer}.ecoSw::after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .2s}.ecoSw.on{background:var(--acc)}.ecoSw.on::after{transform:translateX(20px)}
 @media(prefers-reduced-motion:reduce){.view.on,.sheet{animation:none}}
 </style>
 </head>
@@ -236,6 +238,7 @@ button{cursor:pointer;border:0;background:none;padding:0}
 <!-- TEMA -->
 <section class="view" id="v-tema">
  <div class="hello"><div><small>Tema aktif</small><h1 id="temaNow"></h1></div><button class="gb" data-go="putar" aria-label="Kembali ke pemutar"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button></div>
+ <div class="ecoRow glass"><div><b>Mode hemat baterai</b><small id="ecoTxt"></small></div><button class="ecoSw" id="ecoSw" aria-label="Mode hemat baterai"></button></div>
  <div class="chips" id="subTema"><button data-s="all" class="on">Semua 200</button><button data-s="imut">Imut</button><button data-s="girly">Girly</button><button data-s="keren">Keren</button><button data-s="karakter">Karakter</button><button data-s="futur">Futuristik</button><button data-s="klasik">Klasik</button><button data-s="d">Gelap</button><button data-s="l">Terang</button><button data-s="font">Font 225</button></div>
  <div id="themeGrid" class="tg"></div>
  <div id="fontList" class="fl" hidden></div>
@@ -481,6 +484,7 @@ const lum=h=>{const n=parseInt(h.slice(1),16),c=[n>>16,n>>8&255,n&255].map(v=>{v
 const loaded=new Set(),ONE_W=new Set(['Righteous','Share Tech Mono','Audiowide','Varela Round','Major Mono Display','Yeseva One','Gilda Display','Marcellus','Prata','DM Serif Display','Kosugi Maru','Jua','Michroma','Syncopate','Aldrich','Philosopher','Lexend Zetta']);
 const loadFont=f=>{if(loaded.has(f))return;loaded.add(f);const l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family='+f.replace(/ /g,'+')+(ONE_W.has(f)||FONT_CAT[f]==='hand'||FONT_CAT[f]==='display'?'':':wght@400;700')+'&display=swap';document.head.appendChild(l)};
 let themeI=ls.get('theme',0),fontO=ls.get('font','');
+let eco=ls.get('eco',true);document.documentElement.classList.toggle('eco',eco);const DPR=()=>Math.min(eco?1.5:2,devicePixelRatio||1);
 if(!(themeI>=0&&themeI<T.length))themeI=0;
 function applyTheme(){const t=T[themeI],r=document.documentElement.style,f=fontO||t[6];
  r.setProperty('--bg',t[2]);r.setProperty('--card',t[3]);r.setProperty('--ink',t[4]);r.setProperty('--acc',t[5]);
@@ -1563,16 +1567,21 @@ function updPV(){PV=palOf(themeI,cur())}
 function palOf(i,c){const t=T[i],dark=t[1]==='d',ah=hueOf(t[5]);return{bg:t[2],card:t[3],ink:t[4],acc:t[5],acc2:hsl2hex((ah+150)%360,.8,dark?.65:.45),dark,font:`'${fontO||t[6]}',sans-serif`,h:c?hash(c.title+c.artist)%360:ah,ch:c?(c.title[0]||'?').toUpperCase():'♪',title:c?c.title:'NPlayer',artist:c?c.artist:''}}
 function resetViz(){vs={};vErr=0;if(VW){gx.fillStyle=T[themeI][2];gx.fillRect(0,0,VW,VH)}}
 function onTheme(){updPV();resetViz();$('#vizTag').textContent=T[themeI][0];$('#pfInfo').textContent='NPlayer · '+animName(themeI);$('#temaNow').textContent=T[themeI][0]}
-function sizeViz(){const r=cv.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1);if(!r.width)return;VW=r.width;VH=r.height;cv.width=Math.round(VW*d);cv.height=Math.round(VH*d);gx.setTransform(d,0,0,d,0,0);resetViz()}
+function sizeViz(){const r=cv.getBoundingClientRect(),d=DPR();if(!r.width)return;VW=r.width;VH=r.height;cv.width=Math.round(VW*d);cv.height=Math.round(VH*d);gx.setTransform(d,0,0,d,0,0);resetViz()}
 new ResizeObserver(sizeViz).observe(cv);
 let lastF=performance.now();
-function frame(now){requestAnimationFrame(frame);const dt=Math.min(.05,Math.max(0,(now-lastF)/1000));lastF=now;
- if(!VW||document.hidden||!$('#v-putar').classList.contains('on'))return;
+const vPutar=$('#v-putar');
+function frame(now){requestAnimationFrame(frame);
+ if(!VW||document.hidden||!vPutar.classList.contains('on')){lastF=now;return}
+ const gap=now-lastF;if(gap<(eco?31:15))return;const dt=Math.min(.05,Math.max(0,gap/1000));lastF=now;
  analyse(dt);animT+=dt*AU.sp;const a=AN[themeI]||AN[0];gx.save();const zb=1+AU.kick*.022;if(zb>1.001){gx.translate(VW/2,VH/2);gx.scale(zb,zb);gx.translate(-VW/2,-VH/2)}
  try{V[a[0]](gx,VW,VH,animT,AU,PV,vs,a[1]||{})}catch(e){if(!vErr++)console.error(e)}
  gx.restore();gx.globalAlpha=1;gx.shadowBlur=0;gx.globalCompositeOperation='source-over';drawWave();const pb=$('#bPlay');pb.style.setProperty('--kick',AU.on?AU.kick.toFixed(3):0);$('#ringP').style.strokeDashoffset=(226.2*(1-AU.prog)).toFixed(1)}
 const wvc=$('#wv'),wg=wvc.getContext('2d');let WW=0,WH=0;
-new ResizeObserver(()=>{const r=wvc.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1);if(!r.width)return;WW=r.width;WH=r.height;wvc.width=Math.round(WW*d);wvc.height=Math.round(WH*d);wg.setTransform(d,0,0,d,0,0)}).observe(wvc);
+function sizeWv(){const r=wvc.getBoundingClientRect(),d=DPR();if(!r.width)return;WW=r.width;WH=r.height;wvc.width=Math.round(WW*d);wvc.height=Math.round(WH*d);wg.setTransform(d,0,0,d,0,0)}
+new ResizeObserver(sizeWv).observe(wvc);
+function syncEco(){document.documentElement.classList.toggle('eco',eco);const b=$('#ecoSw');if(b){b.classList.toggle('on',eco);$('#ecoTxt').textContent=eco?'Nyala: animasi 30 fps, tanpa efek kaca buram':'Mati: animasi paling halus, lebih boros'}}
+setTimeout(()=>{syncEco();$('#ecoSw').onclick=()=>{eco=!eco;ls.set('eco',eco);syncEco();sizeViz();sizeWv();toast(eco?'Mode hemat baterai nyala':'Mode hemat baterai mati')}},0);
 const wvS=[];
 function drawWave(){if(!WW)return;const c=cur(),seed=c?hash(c.title+c.artist)%997:7,n=Math.max(20,Math.floor(WW/5)),bw=WW/n,p=seeking?+$('#seek').value/1000:AU.prog;wg.clearRect(0,0,WW,WH);
  for(let i=0;i<n;i++){const u=i/n,base=.25+.55*Math.abs(Math.sin(i*.45+seed)*Math.sin(i*.13+seed*.7))+.2*hs(seed+i),sp=AU.f(2+Math.abs((i/(n-1))*2-1)*48),
