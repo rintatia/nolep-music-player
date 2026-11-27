@@ -467,6 +467,22 @@ class Bridge(private val act: MainActivity) {
     @JavascriptInterface
     fun eState(): String = engine.state()
 
+    /* ---------- latar milik sendiri (foto) ---------- */
+    val bgDir: File get() = File(act.filesDir, "bg").apply { mkdirs() }
+
+    @JavascriptInterface
+    fun pickBg() = act.pickImages()
+
+    @JavascriptInterface
+    fun listBg(): String {
+        val a = JSONArray()
+        (bgDir.listFiles()?.filter { it.isFile && it.name.endsWith(".jpg") } ?: emptyList()).sortedByDescending { it.lastModified() }.forEach { a.put(it.name) }
+        return a.toString()
+    }
+
+    @JavascriptInterface
+    fun delBg(name: String): Boolean = File(bgDir, File(name).name).delete()
+
     @JavascriptInterface
     fun widgetTheme(card: String, ink: String, acc: String, on: String) = NWidget.theme(act.applicationContext, card, ink, acc, on)
 
@@ -536,6 +552,10 @@ class Bridge(private val act: MainActivity) {
                     serve(FileSource(f), mimeOf(f.name), req)
                 }
                 path.startsWith("/r2/") -> proxyR2(path.removePrefix("/r2/"), req)
+                path.startsWith("/bg/") -> {
+                    val f = File(bgDir, File(Uri.decode(path.removePrefix("/bg/"))).name)
+                    WebResourceResponse("image/jpeg", null, 200, "OK", mapOf("Cache-Control" to "max-age=31536000"), f.inputStream())
+                }
                 else -> null
             }
         } catch (e: Exception) {

@@ -4,6 +4,11 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import java.io.File
+import java.io.FileOutputStream
 import android.os.Build
 import android.net.Uri
 import android.os.Bundle
@@ -134,9 +139,73 @@ class MainActivity : Activity() {
         }
     }
 
+    fun pickImages() {
+        runOnUiThread {
+            val i = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("image/*").putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            try {
+                startActivityForResult(i, 43)
+            } catch (e: Exception) {
+                emitJs("bgs", JSONObject().put("added", 0).put("msg", "Pemilih foto tidak tersedia").toString())
+            }
+        }
+    }
+
+    /** Foto latar diperkecil (sisi terpanjang maks 1600px) lalu disimpan sebagai JPEG supaya ringan & hemat memori */
+    private fun saveBgs(uris: List<Uri>) {
+        Thread {
+            var ok = 0
+            var bad = 0
+            val dir = bridge.bgDir
+            uris.forEachIndexed { k, u ->
+                try {
+                    val max = 1600
+                    val bmp: Bitmap = if (Build.VERSION.SDK_INT >= 28) {
+                        ImageDecoder.decodeBitmap(ImageDecoder.createSource(contentResolver, u)) { d, info, _ ->
+                            val w = info.size.width
+                            val h = info.size.height
+                            val sc = minOf(1f, max.toFloat() / maxOf(w, h))
+                            d.setTargetSize(maxOf(1, (w * sc).toInt()), maxOf(1, (h * sc).toInt()))
+                            d.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                        }
+                    } else {
+                        val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        contentResolver.openInputStream(u)?.use { BitmapFactory.decodeStream(it, null, o) }
+                        var ss = 1
+                        while (maxOf(o.outWidth, o.outHeight) / (ss * 2) >= max) ss *= 2
+                        val b = contentResolver.openInputStream(u)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = ss }) }
+                            ?: throw Exception("gagal")
+                        val sc = minOf(1f, max.toFloat() / maxOf(b.width, b.height))
+                        if (sc < 1f) Bitmap.createScaledBitmap(b, (b.width * sc).toInt(), (b.height * sc).toInt(), true) else b
+                    }
+                    val f = File(dir, "bg_" + System.currentTimeMillis() + "_" + k + ".jpg")
+                    FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.JPEG, 88, it) }
+                    bmp.recycle()
+                    ok++
+                } catch (e: Throwable) {
+                    bad++
+                }
+            }
+            emitJs("bgs", JSONObject().put("added", ok).put("failed", bad).toString())
+        }.start()
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 43) {
+            val l = mutableListOf<Uri>()
+            if (resultCode == RESULT_OK && data != null) {
+                val clip = data.clipData
+                if (clip != null) for (k in 0 until clip.itemCount) l.add(clip.getItemAt(k).uri) else data.data?.let { l.add(it) }
+            }
+            if (l.isEmpty()) emitJs("bgs", JSONObject().put("added", 0).put("msg", "Tidak ada foto dipilih").toString())
+            else {
+                emitJs("bgs_wait", JSONObject().put("n", l.size).toString())
+                saveBgs(l)
+            }
+            return
+        }
         if (requestCode != 42) return
         val uris = mutableListOf<Uri>()
         if (resultCode == RESULT_OK && data != null) {
