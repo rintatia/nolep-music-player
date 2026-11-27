@@ -245,7 +245,7 @@ html.eco *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important
 <section class="view" id="v-tema">
  <div class="hello"><div><small>Tampilan kamu</small><h1 id="temaNow"></h1></div><button class="gb" data-go="putar" aria-label="Kembali ke pemutar"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button></div>
  <div class="ecoRow glass"><div><b>Mode hemat baterai</b><small id="ecoTxt"></small></div><button class="ecoSw" id="ecoSw" aria-label="Mode hemat baterai"></button></div>
- <div class="chips" id="subTema"><button data-s="bg" class="on">Latar</button><button data-s="anim">Animasi <em>10</em></button><button data-s="font">Font <em>225</em></button><button data-s="pal">Warna</button></div>
+ <div class="chips" id="subTema"><button data-s="bg" class="on">Latar</button><button data-s="anim">Animasi <em>13</em></button><button data-s="font">Font <em>225</em></button><button data-s="pal">Warna</button></div>
  <div id="themeGrid" class="tg"></div>
  <div id="fontList" class="fl" hidden></div>
 </section>
@@ -320,7 +320,7 @@ let themeI=ls.get('theme',0),fontO=ls.get('font','');if(!(themeI>=0&&themeI<T.le
 let eco=ls.get('eco',true);document.documentElement.classList.toggle('eco',eco);const DPR=()=>Math.min(eco?1.5:2,devicePixelRatio||1);
 const PALS=TH.map(t=>[t.d,...t.pal]);
 let look=ls.get('look',null);if(!look||typeof look!=='object'||!look.bg){const th=TH[themeI]||TH[0];look={bg:'b:'+th.bg,anim:th.hero,font:fontO||th.font,pal:themeI,dim:.15,v:th.v}}
-if(!['quantum','ribbon','sdna','mobius','tornado','hcrystal','sflower','forbit','sjelly','sboom'].includes(look.anim))look.anim='quantum';
+if(!['quantum','ribbon','sdna','mobius','tornado','hcrystal','sflower','forbit','sjelly','sboom','circspec','pwave','fwave'].includes(look.anim))look.anim='quantum';
 let autoPal=ls.get('autoPal',{});if(!autoPal||typeof autoPal!=='object')autoPal={};
 let myBgs=[];const saveLook=()=>{ls.set('look',look);saveSettings()};
 const isUp=()=>String(look.bg).startsWith('u:'),bgName=k=>String(k).slice(2);
@@ -847,6 +847,22 @@ sboom(g,W,H,A,P,s){const N=P.N,cx=W/2,cy=H*.46,R=Math.min(W,H)*.26,n=480;if(!s.d
  bk.forEach((L,k)=>{g.strokeStyle=rgba(cs[k],.8);g.lineWidth=1.5+k*.3;g.beginPath();for(let i=0;i<L.length;i+=5){g.moveTo(L[i],L[i+1]);g.lineTo(L[i+2]+.01,L[i+3])}g.stroke();g.fillStyle=cs[k];for(let i=0;i<L.length;i+=5){const z=1.6*L[i+4]+k*.4;g.fillRect(L[i+2]-z,L[i+3]-z,z*2,z*2)}});g.globalCompositeOperation='source-over'}
 };
 const ANIMS=['quantum','ribbon','sdna','mobius','tornado','hcrystal','sflower','forbit','sjelly','sboom'];
+/* ===== 3 visualizer dari "Audio Reactive Visualizer Pack" (gambar asli, data dari pembaca beat NPlayer) ===== */
+Object.assign(HN,{circspec:'Circular Spectrum',pwave:'Particle Wave',fwave:'Fluid Wave'});
+Object.assign(HX,{
+circspec(g,W,H,A,P,s){s.ph=(s.ph||0)+A.dt*.72;const cx=W/2,cy=H*.46,base=Math.min(W,H)*.235*(1+A.k*.05),n=112,Lt=P.dark?66:46;g.lineCap='round';g.lineWidth=2.2;
+ for(let i=0;i<n;i++){const a=i/n*TAU-Math.PI/2,e=Math.min(1,band(A,i/n*.98)*1.1),outer=base+5+e*base*.78,hue=(i/n*300+s.ph*18)%360;g.beginPath();g.moveTo(cx+Math.cos(a)*base,cy+Math.sin(a)*base);g.lineTo(cx+Math.cos(a)*outer,cy+Math.sin(a)*outer);g.strokeStyle=`hsla(${hue},92%,${Lt}%,${.48+e*.5})`;g.stroke()}
+ g.beginPath();g.arc(cx,cy,base-8,0,TAU);g.strokeStyle=P.dark?'rgba(255,255,255,.13)':'rgba(0,0,0,.13)';g.lineWidth=1;g.stroke()},
+pwave(g,W,H,A,P,s){s.ph=(s.ph||0)+A.dt*.72;const mid=H*.46,n=150,span=W*.86,left=(W-span)/2,Lt=P.dark?65:45;
+ for(let i=0;i<n;i++){const x=left+i/(n-1)*span,e=Math.min(1,band(A,i/n*.72/.8)*1.1),wave=A.on?(A.wave[Math.floor(i/n*256)]-128)/128:0,y=mid+wave*H*.22+Math.sin(i*.13+s.ph)*3,spread=3+e*H*.23,hue=(i/n*280+s.ph*20)%360;
+  for(let j=-2;j<=2;j++){const yy=y+j*spread*.28,al=.2+(1-Math.abs(j)/3)*(.35+e*.55);g.beginPath();g.arc(x,yy,.8+e*1.5,0,TAU);g.fillStyle=`hsla(${hue},95%,${Lt}%,${al})`;g.fill()}
+  if(i%3===0&&e>.12){g.beginPath();g.moveTo(x,y);g.lineTo(x,y-spread);g.strokeStyle=`hsla(${hue},95%,${Lt}%,${e*.45})`;g.lineWidth=1;g.stroke()}}},
+fwave(g,W,H,A,P,s){s.ph=(s.ph||0)+A.dt*.72;const mid=H*.46,pts=180,sc=Math.min(W,H)/360;g.lineCap='round';
+ for(let l=0;l<5;l++){g.beginPath();for(let i=0;i<pts;i++){const x=i/(pts-1)*W,e=Math.min(1,band(A,i/pts*.95)*1.1),smp=A.on?(A.wave[Math.floor(i/pts*256)]-128)/128:0,env=Math.sin(i/pts*Math.PI),
+  y=mid+Math.sin(i*.045+s.ph*(1+l*.08)+l*.55)*(8+e*30)*sc*env+smp*(8+l*2)*sc+(l-2)*3*sc;i?g.lineTo(x,y):g.moveTo(x,y)}
+  const hue=(305+l*23+s.ph*12)%360;g.strokeStyle=`hsla(${hue},90%,${(P.dark?62:42)+l*2}%,${.72-l*.09})`;g.lineWidth=l===2?2.2:1.35;g.stroke()}}
+});
+ANIMS.push('circspec','pwave','fwave');
 function orbLetter(g,x,y,r,P){g.fillStyle=lin(g,x-r,y-r,x+r,y+r,[[0,`hsl(${P.h} 70% 60%)`],[1,`hsl(${(P.h+60)%360} 65% 38%)`]]);circ(g,x,y,r);g.fill();g.fillStyle='rgba(255,255,255,.92)';g.font=`800 ${Math.round(r*.8)}px ${P.font}`;g.textAlign='center';g.textBaseline='middle';g.fillText(P.ch,x,y+r*.05)}
 function prepPal(P,s){if(s.P0!==P){s.P0=P;s.P=Object.assign({},P,{body:mixHex(P.acc,'#ffffff',P.dark?.12:.3),b2:mixHex(P.bg,P.acc,P.dark?.22:.28),b3:mixHex(P.bg,P.acc2,.22)})}return s.P}
 function drawTheme(g,W,H,i,tb,A,P0,s){const th=TH[i]||TH[0],P=prepPal(P0,s);s.b=s.b||{};s.h=s.h||{};
