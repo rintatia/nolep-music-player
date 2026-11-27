@@ -496,6 +496,16 @@ class Bridge(private val act: MainActivity) {
     fun requestViz() = act.askVizPermission()
 
     @JavascriptInterface
+    fun vizReset() = act.runOnUiThread { engine.reattachViz() }
+
+    @JavascriptInterface
+    fun openAppSettings() = act.runOnUiThread {
+        try {
+            act.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + act.packageName)))
+        } catch (e: Exception) { }
+    }
+
+    @JavascriptInterface
     fun nPause() = act.runOnUiThread { try { if (mpReady) mp?.pause() } catch (e: Exception) { } }
 
     @JavascriptInterface

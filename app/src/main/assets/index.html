@@ -344,7 +344,7 @@ function drawBgImg(g,W,H,name,P){const o=bgImg(name);fill(g,W,H,P.bg);if(!o.ok)r
 function drawScene(g,W,H,tb,A,P0,s,lk){const P=prepPal(P0,s);s.b=s.b||{};s.h=s.h||{};
  if(String(lk.bg).startsWith('u:'))drawBgImg(g,W,H,bgName(lk.bg),P);else(BG[bgName(lk.bg)]||BG.sky)(g,W,H,tb,P,s.b,7);
  g.globalAlpha=1;g.globalCompositeOperation='source-over';if(lk.dim>0){g.fillStyle=rgba(P.dark?'#000000':P.bg,cl(+lk.dim,0,.8));g.fillRect(0,0,W,H)}
- g.save();(HX[lk.anim]||HX.ring)(g,W,H,A,P,s.h,lk.v|0,A.ht||0);g.restore();g.globalAlpha=1;g.lineCap='butt';g.globalCompositeOperation='source-over'}
+ s.fx=s.fx||{};fxBack(g,W,H,A,P,s.fx);g.save();(HX[lk.anim]||HX.ring)(g,W,H,A,P,s.h,lk.v|0,A.ht||0);g.restore();fxFront(g,W,H,A,P,s.fx);g.globalAlpha=1;g.lineCap='butt';g.globalCompositeOperation='source-over'}
 let temaFilter='bg';
 const fontIO='IntersectionObserver' in window?new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){loadFont(e.target.dataset.lf);fontIO.unobserve(e.target)}}),{rootMargin:'200px'}):null;
 const lazyFonts=root=>root.querySelectorAll('[data-lf]').forEach(el=>fontIO?fontIO.observe(el):loadFont(el.dataset.lf));
@@ -745,24 +745,34 @@ planet(g,W,H,t,P,s,v){const px=W*(v%2?.2:.8),py=H*.16,R=W*.17;lay(g,s,'a',W,H,x=
 };
 
 /* ===== gerak halus dari beat: pegas (spring) supaya tidak kaku ===== */
-function stepMotion(A,dt){if(!A.sm){A.sm=new Float32Array(32);A.bob=0;A.bobV=0;A.swx=0;A.swV=0;A.dir=1;A.e=0;A.ht=0;A.k=0}
- dt=Math.min(.05,Math.max(0,dt));const n=Math.max(1,Math.ceil(dt/.008)),h=dt/n;
- if(A.beat&&A.on){A.bobV+=3.4+A.kick*2.6;A.dir=-A.dir}
- for(let i=0;i<n;i++){A.bobV+=(-170*A.bob-11*A.bobV)*h;A.bob+=A.bobV*h;const tg=A.on?A.dir:0;A.swV+=((tg-A.swx)*48-9.5*A.swV)*h;A.swx+=A.swV*h}
- const at=1-Math.exp(-dt*30),rl=1-Math.exp(-dt*7);
- for(let i=0;i<32;i++){const lo=1+Math.floor(Math.pow(i/32,1.7)*110),hi=Math.max(lo+1,1+Math.floor(Math.pow((i+1)/32,1.7)*110));let m=0;for(let j=lo;j<hi;j++)m=Math.max(m,A.f(j));const vv=A.on?Math.min(1,m*(1+i*.025)):0;A.sm[i]+=(vv-A.sm[i])*(vv>A.sm[i]?at:rl)}
- A.e+=((A.on?A.lvl:0)-A.e)*(1-Math.exp(-dt*6));A.k=A.kick;A.ht+=dt*(.5+A.e*1.6)}
+function stepMotion(A,dt){if(!A.sm)A.sm=new Float32Array(32);if(A.bob===undefined)Object.assign(A,{bob:0,bobV:0,swx:0,swV:0,dir:1,e:0,ht:0,k:0,nod:0,nodV:0,ph:0,bn:0});
+ dt=Math.min(.05,Math.max(0,dt));const n=Math.max(1,Math.ceil(dt/.004)),h=dt/n,on=A.on;
+ if(!A.agc){const at=1-Math.exp(-dt*40),rl=1-Math.exp(-dt*10);for(let i=0;i<32;i++){const lo=1+Math.floor(Math.pow(i/32,1.7)*110),hi=Math.max(lo+1,1+Math.floor(Math.pow((i+1)/32,1.7)*110));let m=0;for(let j=lo;j<hi;j++)m=Math.max(m,A.f(j));const vv=on?Math.min(1,m*(1+i*.025)):0;A.sm[i]+=(vv-A.sm[i])*(vv>A.sm[i]?at:rl)}
+  A.hitM=A.beatM?1:(A.hitM||0)*Math.exp(-dt*9);A.hitH=A.beatH?1:(A.hitH||0)*Math.exp(-dt*15)}
+ if(A.beat&&on){A.bobV+=10+(A.kick||0)*8;A.dir=-A.dir;if(A.per){if(A.ph>.5)A.bn++;A.ph=0}else A.bn++}
+ if(A.beatM&&on)A.nodV+=7+(A.hitM||0)*5;
+ if(on&&A.per){A.ph+=dt/A.per;if(A.ph>=1){A.ph-=1;A.bn++}}
+ const gr=on&&A.per?Math.sin(Math.PI*(A.bn+A.ph)):null;
+ for(let i=0;i<n;i++){A.bobV+=(-900*A.bob-34*A.bobV)*h;A.bob+=A.bobV*h;A.nodV+=(-600*A.nod-26*A.nodV)*h;A.nod+=A.nodV*h;const tg=gr!==null?gr:(on?A.dir:0);A.swV+=((tg-A.swx)*140-17*A.swV)*h;A.swx+=A.swV*h}
+ A.e+=((on?A.lvl:0)-A.e)*(1-Math.exp(-dt*6));A.k=A.kick||0;A.ht+=dt*(.5+A.e*1.6)}
 const band=(A,u)=>A.sm[Math.max(0,Math.min(31,Math.floor(u*31.99)))];
 
 /* ===== KARAKTER: badan, kepala & telinga punya pegas sendiri (follow-through), kedip, menyanyi ===== */
 function spring(s,k,tgt,K,C,dt){const v=k+'v';s[v]=(s[v]||0)+((tgt-(s[k]||0))*K-(s[v]||0)*C)*dt;s[k]=(s[k]||0)+s[v]*dt;return s[k]}
-function pose(A,s,t,seed){const on=A.on?1:0,e=on?cl(.45+A.e*1.4,0,1.25):0,dt=Math.min(.05,A.dt||1/30);
+function pose(A,s,t,seed){const on=A.on?1:0,e=on?cl(.85+A.e*.6,0,1.3):0,dt=Math.min(.05,A.dt||1/30);
  s.blk=(s.blk===undefined?1+seed:s.blk)-dt;if(s.blk<-.14)s.blk=1.8+hs(t+seed)*3.2;
- const lean=A.swx*.14*e+(1-on)*Math.sin(t*1.1+seed)*.035;
- const head=spring(s,'hd',lean*1.5+A.bobV*.012*e,70,8,dt),ear=spring(s,'er',-A.bobV*.07*e,90,6,dt),tail=spring(s,'tl',A.swx*e,30,4,dt);
- const kk=A.k*e;return{y:-Math.max(-.08,A.bob)*e*.34+(1-on)*Math.sin(t*2+seed)*.02,sq:cl(-A.bob*e*.55,-.12,.2)+(1-on)*Math.sin(t*2+seed)*.015,rot:lean,head,ear,tail,
-  armL:.35+kk*1.1+Math.max(0,A.swx)*.6*e+(1-on)*Math.sin(t*1.6)*.08,armR:.35+kk*1.1+Math.max(0,-A.swx)*.6*e+(1-on)*Math.sin(t*1.6+1)*.08,legL:Math.max(0,A.swx)*e,legR:Math.max(0,-A.swx)*e,
-  mouth:on?cl(A.mid*1.7+kk*.5,0,1):.08,blink:s.blk<0,look:Math.sin(t*.37+seed)*.6,happy:kk>.75,e,on,t}}
+ const side=(A.bn||0)%2?1:-1,hM=(A.hitM||0)*e,hH=(A.hitH||0)*e,kk=(A.k||0)*e,grv=A.per&&on?Math.pow(Math.sin(Math.PI*(A.ph||0)),2):0;
+ const lean=A.swx*.2*e+(1-on)*Math.sin(t*1.1+seed)*.035;
+ const head=spring(s,'hd',lean*1.4+(A.nod||0)*.45*e*side,120,10,dt),ear=spring(s,'er',-A.bobV*.03*e+hH*.45*Math.sin(t*38),170,8,dt),tail=spring(s,'tl',A.swx*e+hM*.7*side,50,5,dt);
+ return{y:-Math.max(-.1,A.bob)*e*.95-grv*.06*e+(1-on)*Math.sin(t*2+seed)*.02,sq:cl(-A.bob*e*.9,-.16,.24)+kk*.06+(1-on)*Math.sin(t*2+seed)*.015,rot:lean,head,ear,tail,
+  armL:.3+e*(.2+.85*Math.max(0,A.swx))+hM*(side<0?1.8:.7)+kk*.5+(1-on)*Math.sin(t*1.6)*.08,armR:.3+e*(.2+.85*Math.max(0,-A.swx))+hM*(side>0?1.8:.7)+kk*.5+(1-on)*Math.sin(t*1.6+1)*.08,
+  legL:Math.max(0,A.swx)*e,legR:Math.max(0,-A.swx)*e,mouth:on?cl(A.mid*1.4+kk*.4+hM*.35,0,1):.08,blink:s.blk<0,look:Math.sin(t*.37+seed)*.6+hH*.3*side,happy:kk>.8,e,on,t}}
+/* efek tambahan untuk semua animasi: snare = gelombang cincin, hi-hat = kilau kecil */
+function fxBack(g,W,H,A,P,s){const cx=W/2,cy=H*.45,R=Math.min(W,H);s.rg=s.rg||[];if(A.on&&A.beatM&&s.rg.length<4)s.rg.push(0);
+ for(let i=0;i<s.rg.length;i++){s.rg[i]+=A.dt*3;const r=s.rg[i];if(r<1){g.strokeStyle=rgba(P.acc2,(1-r)*.38);g.lineWidth=2+3*(1-r);circ(g,cx,cy,R*(.16+r*.36));g.stroke()}}s.rg=s.rg.filter(r=>r<1)}
+function fxFront(g,W,H,A,P,s){const cx=W/2,cy=H*.45,R=Math.min(W,H);s.sp=s.sp||[];
+ if(A.on&&A.beatH){const n=2+Math.round((A.hitH||0)*4);for(let i=0;i<n&&s.sp.length<40;i++){const a=hs(A.ht*13+i)*TAU,d=R*(.2+hs(A.ht*7+i*3)*.25);s.sp.push({x:cx+Math.cos(a)*d,y:cy+Math.sin(a)*d*.95,l:1,z:.6+hs(i+A.ht)*.8,c:i%2,r:hs(i*5+A.ht)*3})}}
+ for(const q of s.sp){q.l-=A.dt*2.6;if(q.l<=0)continue;g.fillStyle=rgba(q.c?P.acc2:P.ink,Math.min(1,q.l*1.4));g.beginPath();starP(g,q.x,q.y,R*.022*q.z*(.4+q.l),4,.35,q.r+q.l);g.fill()}s.sp=s.sp.filter(q=>q.l>0)}
 const INK='#2a2230';
 function face(g,S,p,y,sz,o){o=o||{};const ex=S*.15*sz,ec=o.eye||INK,lx=p.look*S*.02;g.fillStyle=ec;g.strokeStyle=ec;g.lineCap='round';
  for(const sx of[-1,1]){const x=sx*ex+lx;if(p.blink||p.happy){g.lineWidth=S*.035*sz;g.beginPath();if(p.happy)g.arc(x,y+S*.02,S*.05*sz,Math.PI*1.15,Math.PI*1.85);else{g.moveTo(x-S*.04*sz,y);g.lineTo(x+S*.04*sz,y)}g.stroke()}
@@ -832,7 +842,7 @@ jelly:(g,S,p,P)=>{const B=mixHex('#c79bff',P.acc,.4),k=cl(P.A.k*p.e,0,1),sx=1+k*
 const FLOAT=new Set(['ghost','whale','jelly']);
 /* panggung karakter (ikut beat) */
 function stage(g,W,H,A,P,s,v,cx,gy,S){const m=v%3;
- if(m===0){const n=18;for(let i=0;i<n;i++){const u=i/(n-1),val=band(A,Math.abs(u*2-1)*.7),x=cx-S*1.5+u*S*3,h=S*.04+val*S*.55;g.fillStyle=rgba(i%2?P.acc:P.acc2,.55);rr(g,x-S*.05,gy-h,S*.1,h,S*.05);g.fill()}}
+ if(m===0){const n=18;for(let i=0;i<n;i++){const u=i/(n-1),val=band(A,Math.abs(u*2-1)*.95),x=cx-S*1.5+u*S*3,h=S*.05+Math.pow(val,.75)*S*.6;g.fillStyle=rgba(i%2?P.acc:P.acc2,.55);rr(g,x-S*.05,gy-h,S*.1,h,S*.05);g.fill()}}
  else if(m===1){g.fillStyle=rad(g,cx,gy-S*.6,S*1.5,[[0,rgba(P.acc,.18+A.k*.25)],[1,rgba(P.acc,0)]]);g.fillRect(cx-S*1.6,gy-S*2.1,S*3.2,S*3);s.rg=s.rg||[];if(A.beat&&A.on)s.rg.push(0);s.rg=s.rg.filter(r=>r<1);for(let i=0;i<s.rg.length;i++){s.rg[i]+=A.dt*1.4;const r=s.rg[i];g.strokeStyle=rgba(P.acc2,(1-r)*.6);g.lineWidth=3*(1-r)+1;g.beginPath();g.ellipse(cx,gy,S*(.6+r*1.4),S*(.12+r*.28),0,0,TAU);g.stroke()}}
  else{s.nt=s.nt||[];if(A.beat&&A.on&&s.nt.length<14)s.nt.push({x:cx+(hs(A.ht)-.5)*S*1.4,y:gy-S*1.2,a:0,k:hs(A.ht*3)>.5});s.nt=s.nt.filter(n=>n.a<1);g.font=`700 ${Math.round(S*.28)}px sans-serif`;g.textAlign='center';for(const n of s.nt){n.a+=A.dt*.6;n.y-=A.dt*S*.6;n.x+=Math.sin(n.a*9)*.6;g.fillStyle=rgba(n.k?P.acc:P.acc2,1-n.a);g.fillText(n.k?'♪':'♫',n.x,n.y)}}}
 function dancer(name){return(g,W,H,A,P,s,v,t)=>{const S=Math.min(W,H)*.31,cx=W/2,gy=H*.45+S*.95,trio=v%4===1&&!FLOAT.has(name);P.A=A;
@@ -946,28 +956,42 @@ const animName=i=>{const th=TH[i]||TH[0];return HN[th.hero]+(CHARS.includes(th.h
 /* analisis audio */
 let actx=null,an=null;
 function initAudio(){if(actx){if(actx.state==='suspended')actx.resume().catch(()=>{});return}
- try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;actx=new AC();const src=actx.createMediaElementSource(au);an=actx.createAnalyser();an.fftSize=256;an.smoothingTimeConstant=.78;src.connect(an);an.connect(actx.destination)}catch(e){an=null}}
-const FD=new Uint8Array(128),WD=new Uint8Array(256).fill(128);
-const AU={f:i=>Math.min(1,FD[Math.max(0,Math.min(127,Math.floor(i*.62)))]/255*1.12),wave:WD,bass:0,mid:0,high:0,lvl:0,kick:0,beat:false,on:false,dt:0,sp:.18,prog:0,time:'0:00',bavg:0,cd:0,clk:0,flx:[],prevLow:new Float32Array(12),ivs:[],period:0,lastB:0,beatN:0,phase:0,pulse:0,miss:0,bpm:0};
-let animT=0;if(location.search.includes('debug')){window.__AU=AU;window.__T={TH,drawTheme,drawScene,stepMotion,palOf,HX,ANIMS,look,setLook}}
-function analyse(dt){const on=isPlaying()&&!!cur();AU.on=on;AU.dt=dt;const T2=animT;
- let live=false;if(on&&ENG){const sv=NATIVE.eViz();if(sv){const pp=sv.split('|'),fa=pp[0].split(','),wa=(pp[1]||'').split(',');for(let i=0;i<128;i++)FD[i]=+fa[i]||0;for(let i=0;i<256;i++)WD[i]=+wa[i>>1]||128;live=true}}
- if(!live&&on&&an&&!ENG){an.getByteFrequencyData(FD);an.getByteTimeDomainData(WD);let s=0;for(let i=0;i<40;i++)s+=FD[i];AU.zero=s?0:(AU.zero||0)+dt;live=AU.zero<1.5}
- if(live){}else if(on){const sp2=(AU.clk%.5)/.5,kd=Math.pow(1-sp2,3);for(let i=0;i<128;i++)FD[i]=Math.max(0,Math.min(255,(.4+.3*Math.sin(T2*3.1+i*.27)*Math.sin(T2*1.3+i*.07))*(1-i/90)*255*(.65+.35*Math.abs(Math.sin(T2*2.2)))+(i<10?kd*170:0)));for(let i=0;i<256;i++)WD[i]=128+Math.sin(i*.15+T2*8)*40*Math.sin(T2*1.7)+Math.sin(i*.43-T2*5)*15}
- else{for(let i=0;i<128;i++)FD[i]=FD[i]*.92+Math.max(0,(46+30*Math.sin(T2*1.5+i*.2))*(1-i/70))*.08;for(let i=0;i<256;i++)WD[i]=WD[i]*.9+(128+Math.sin(i*.1+T2*2)*6)*.1}
- const avg=(a,b)=>{let s=0;for(let i=a;i<b;i++)s+=FD[i];return s/(b-a)/255};const b=avg(1,6),m=avg(8,30),h=avg(30,64);
- const env=(k,v,at,rl)=>{AU[k]+=(v-AU[k])*Math.min(1,(v>AU[k]?at:rl)*dt*60)};
- env('bass',b,.6,.12);env('mid',m,.5,.1);env('high',Math.min(1,h*1.6),.6,.15);env('lvl',(b+m+Math.min(1,h*1.6))/3,.35,.06);
- AU.clk+=dt;let flux=0;for(let i=0;i<5;i++){const v=FD[i]/255,w=i<2?1.5:1;flux+=Math.max(0,v-AU.prevLow[i])*w;AU.prevLow[i]=v}
- const F=AU.flx;F.push(flux);if(F.length>48)F.shift();let mean=0;for(const x of F)mean+=x;mean/=F.length;let sd=0;for(const x of F)sd+=(x-mean)*(x-mean);sd=Math.sqrt(sd/F.length);
- AU.cd-=dt;AU.beat=false;AU.bavg+=(b-AU.bavg)*.05;
- const fire=(strength)=>{AU.beat=true;AU.kick=Math.max(AU.kick,strength);AU.cd=.2;AU.beatN++;AU.lastB=AU.clk};
- if(on&&AU.cd<=0&&flux>mean+1.05*sd+.018&&b>.08){const iv=AU.clk-AU.lastB;if(AU.lastB&&iv>.26&&iv<1.6){AU.ivs.push(iv);if(AU.ivs.length>16)AU.ivs.shift();const so=[...AU.ivs].sort((x,y)=>x-y);let p=so[so.length>>1];while(p<.33)p*=2;while(p>1.05)p/=2;AU.period=AU.period?AU.period*.7+p*.3:p}fire(Math.min(1,.65+flux*1.5));AU.miss=0}
- else if(on&&AU.period&&AU.cd<=0&&AU.clk-AU.lastB>=AU.period&&AU.miss<4){AU.miss++;fire(.55)}
- if(!on){AU.miss=0}
- const per=AU.period||.5;AU.phase=on?Math.min(1,(AU.clk-AU.lastB)/per):AU.phase*.9;AU.pulse=on?Math.pow(1-AU.phase,2.2):AU.pulse*.9;AU.bpm=Math.round(60/per);
- AU.kick*=Math.pow(.006,dt);AU.sp+=((on?.7+AU.lvl*1.1+AU.kick*.45:.18)-AU.sp)*Math.min(1,dt*4);
+ try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;actx=new AC();const src=actx.createMediaElementSource(au);an=actx.createAnalyser();an.fftSize=2048;an.smoothingTimeConstant=.4;src.connect(an);an.connect(actx.destination)}catch(e){an=null}}
+/* ---------- PEMBACA BEAT V18: 128 pita logaritmik (30Hz–16kHz), penguat otomatis per pita, deteksi kick / snare / hi-hat terpisah, pelacak tempo ---------- */
+const FD=new Uint8Array(128),WD=new Uint8Array(256).fill(128);let LIN=null,LW=null;const BMAP=[];
+function linToLog(sr,n){const bh=sr/(n*2);for(let b=0;b<128;b++)BMAP[b]=[30*Math.pow(533.3,b/128)/bh,30*Math.pow(533.3,(b+1)/128)/bh]}
+const AU={f:i=>{const x=Math.min(31,Math.max(0,i*.62/4)),j=x|0,u=x-j;return AU.sm[j]*(1-u)+AU.sm[Math.min(31,j+1)]*u},wave:WD,sm:new Float32Array(32),agc:true,
+ bass:0,mid:0,high:0,lvl:0,kick:0,hitM:0,hitH:0,beat:false,beatM:false,beatH:false,on:false,dt:0,sp:.18,prog:0,time:'0:00',fake:false,
+ pk:new Float32Array(32).fill(.6),mn:new Float32Array(32).fill(.2),av:new Float32Array(32).fill(.4),nv:new Float32Array(32),pv:new Float32Array(32),rw:new Float32Array(32),rp:new Float32Array(32),fl:[[],[],[]],cd:[0,0,0],ivs:[],lastB:0,clk:0,per:0,zero:0,fk:0};
+const GRP=[[1,6,.16,6.5,1.35],[14,23,.11,9,1.25],[25,31,.06,15,.95]];
+let animT=0;if(location.search.includes('debug')){window.__AU=AU;window.__T={TH,drawTheme,drawScene,stepMotion,palOf,HX,ANIMS,look,setLook,analyseFD:(fd,dt,on)=>{FD.set(fd);return analyse(dt,true,on)}}}
+function analyse(dt,ext,extOn){const on=ext?extOn:isPlaying()&&!!cur();AU.on=on;AU.dt=dt;AU.clk+=dt;const T2=animT;let live=!!ext;
+ if(!ext&&on&&ENG){const sv=NATIVE.eViz();if(sv){const pp=sv.split('|'),fa=pp[0].split(','),wa=(pp[1]||'').split(',');if(fa.length>=128){for(let i=0;i<128;i++)FD[i]=+fa[i]||0;for(let i=0;i<256;i++)WD[i]=+wa[i>>1]||128;live=true}}}
+ if(!ext&&!live&&on&&an&&!ENG){if(!LIN||LIN.length!==an.frequencyBinCount){LIN=new Uint8Array(an.frequencyBinCount);LW=new Uint8Array(an.fftSize);linToLog(actx.sampleRate,LIN.length)}an.getByteFrequencyData(LIN);an.getByteTimeDomainData(LW);
+  for(let b=0;b<128;b++){const k0=BMAP[b][0],k1=BMAP[b][1];let m=0;if(k1-k0<1){const kc=(k0+k1)/2,i=Math.max(1,Math.min(LIN.length-2,kc|0)),u=kc-i;m=LIN[i]*(1-u)+LIN[i+1]*u}else for(let i=Math.ceil(k0);i<=Math.min(LIN.length-1,k1|0);i++)m=Math.max(m,LIN[i]);FD[b]=m}
+  const st=LW.length>>8;for(let i=0;i<256;i++)WD[i]=LW[i*st];live=true}
+ if(live&&!ext){let s=0;for(let i=0;i<128;i++)s+=FD[i];AU.zero=s<60?AU.zero+dt:0;if(AU.zero>1.5){live=false;if(ENG&&!AU.zr){AU.zr=1;try{NATIVE.vizReset()}catch(e){}}}}
+ AU.fake=on&&!live;if(ENG&&AU.fake){AU.fk+=dt;if(AU.fk>4&&!AU.fkShown){AU.fkShown=1;vizHelp()}}else AU.fk=0;
+ if(!live&&on){const ph=(AU.clk%.5)/.5,kd=Math.pow(1-ph,4),hp=((AU.clk+.25)%.25)/.25,hd=Math.pow(1-hp,6),sn=((AU.clk+.5)%1)/1,sd=Math.pow(1-sn,5);
+  for(let i=0;i<128;i++){const u=i/127;FD[i]=cl(255*((.35+.12*Math.sin(T2*1.7+i*.2))*(1-u*.5)+(u<.2?kd*.6:0)+(u>.45&&u<.75?sd*.45:0)+(u>.8?hd*.4:0)),0,255)}for(let i=0;i<256;i++)WD[i]=128+Math.sin(i*.15+T2*8)*40*kd+Math.sin(i*.6-T2*5)*15*hd}
+ else if(!live){for(let i=0;i<128;i++)FD[i]=FD[i]*.9;for(let i=0;i<256;i++)WD[i]=WD[i]*.9+12.8}
+ const at=1-Math.exp(-dt*45),rl=1-Math.exp(-dt*11),ae=1-Math.exp(-dt*.5);
+ for(let i=0;i<32;i++){const r=(FD[i*4]+FD[i*4+1]+FD[i*4+2]+FD[i*4+3])/1020;AU.rp[i]=AU.rw[i];AU.rw[i]=r;AU.av[i]+=(r-AU.av[i])*ae;
+  AU.pk[i]=Math.max(r,AU.pk[i]-dt*.07,AU.av[i]+.06);AU.mn[i]=Math.min(r,AU.mn[i]+dt*.05,AU.av[i]-.1);const n=Math.pow(cl((r-AU.mn[i])/Math.max(.12,AU.pk[i]-AU.mn[i]),0,1),1.25);
+  AU.pv[i]=AU.nv[i];AU.nv[i]=n;const v=on?n:0;AU.sm[i]+=(v-AU.sm[i])*(v>AU.sm[i]?at:rl)}
+ const lvAvg=(a,b)=>{let s=0;for(let i=a;i<=b;i++)s+=AU.sm[i];return s/(b-a+1)};AU.bass=lvAvg(1,6);AU.mid=lvAvg(10,20);AU.high=lvAvg(24,31);AU.lvl=lvAvg(0,31);
+ const hits=[false,false,false],str=[0,0,0];
+ GRP.forEach(([a,b,cdT,,kz],k)=>{let f=0,rf=0;for(let i=a;i<=b;i++){f+=Math.max(0,AU.nv[i]-AU.pv[i]);rf+=Math.max(0,AU.rw[i]-AU.rp[i])}f/=(b-a+1);rf/=(b-a+1);const Hh=AU.fl[k];Hh.push(f);if(Hh.length>50)Hh.shift();let m=0;for(const x of Hh)m+=x;m/=Hh.length;let sd=0;for(const x of Hh)sd+=(x-m)*(x-m);sd=Math.sqrt(sd/Hh.length);
+  AU.cd[k]-=dt;if(on&&AU.cd[k]<=0&&f>m+kz*sd+.015&&rf>.032&&lvAvg(a,b)>.1){hits[k]=true;str[k]=cl((f-m)/(sd*3+.02),0,1);AU.cd[k]=cdT}});
+ AU.beat=hits[0];AU.beatM=hits[1];AU.beatH=hits[2];
+ AU.kick=Math.max(AU.kick*Math.exp(-dt*6.5),hits[0]?.55+.45*str[0]:0);AU.hitM=Math.max(AU.hitM*Math.exp(-dt*9),hits[1]?.55+.45*str[1]:0);AU.hitH=Math.max(AU.hitH*Math.exp(-dt*15),hits[2]?.5+.5*str[2]:0);
+ if(hits[0]){const iv=AU.clk-AU.lastB;if(AU.lastB&&iv>.25&&iv<1.6){let p=iv;while(p<.36)p*=2;while(p>1.05)p/=2;AU.ivs.push(p);if(AU.ivs.length>12)AU.ivs.shift();const so=[...AU.ivs].sort((x,y)=>x-y),md=so[so.length>>1];AU.per=AU.per?AU.per*.75+md*.25:md}AU.lastB=AU.clk}
+ if(AU.clk-AU.lastB>4||!on)AU.per=0;
+ AU.sp+=((on?.7+AU.lvl*1.1+AU.kick*.45:.18)-AU.sp)*Math.min(1,dt*4);
  AU.prog=durOf()?curTime()/durOf():0;AU.time=fmt(curTime());stepMotion(AU,dt)}
+function vizHelp(){let ok=false;try{ok=NATIVE.vizAllowed()}catch(e){}
+ if(ok){toast('Pembaca beat HP belum mengirim data. Animasi memakai irama tiruan sementara.');return}
+ openSheet(`<p>Animasi belum membaca lagu</p><div class="help">Izin <b>"rekam audio"</b> untuk NPlayer belum aktif, jadi animasi memakai irama tiruan. Izin ini hanya dipakai untuk membaca suara lagu yang sedang diputar. Mikrofon tidak dipakai dan tidak ada yang direkam.</div><div class="row2"><button class="hbtn g" data-v="set">Buka pengaturan</button><button class="hbtn" data-v="ask">Izinkan</button></div>`,e=>{const b=e.target.closest('[data-v]');if(!b)return;closeSheet();try{b.dataset.v==='ask'?NATIVE.requestViz():NATIVE.openAppSettings()}catch(er){}})}
 
 /* kanvas */
 const cv=$('#viz'),gx=cv.getContext('2d');let VW=0,VH=0,vs={},PV={},vErr=0;
@@ -978,17 +1002,17 @@ function onTheme(){updPV();resetViz();$('#vizTag').textContent=lookName();$('#pf
 function sizeViz(){const r=cv.getBoundingClientRect(),d=DPR();if(!r.width)return;VW=r.width;VH=r.height;cv.width=Math.round(VW*d);cv.height=Math.round(VH*d);gx.setTransform(d,0,0,d,0,0);resetViz()}
 new ResizeObserver(sizeViz).observe(cv);
 let lastF=performance.now();
-const vPutar=$('#v-putar');
-function frame(now){requestAnimationFrame(frame);
+const vPutar=$('#v-putar');let hzEst=60,lastRaw=0,fSkip=0;
+function frame(now){requestAnimationFrame(frame);const raw=now-lastRaw;lastRaw=now;if(raw>4&&raw<40)hzEst+=(1000/raw-hzEst)*.05;
  if(!VW||document.hidden||!vPutar.classList.contains('on')){lastF=now;return}
- const gap=now-lastF;if(gap<(eco?31:15))return;const dt=Math.min(.05,Math.max(0,gap/1000));lastF=now;
+ const kS=Math.max(1,Math.round(hzEst/(eco?45:90)));fSkip=(fSkip+1)%kS;if(fSkip)return;const dt=Math.min(.05,Math.max(0,(now-lastF)/1000));lastF=now;
  analyse(dt);animT+=dt;
  try{drawScene(gx,VW,VH,animT,AU,PV,vs,look)}catch(e){if(!vErr++)console.error(e)}
  gx.globalAlpha=1;gx.globalCompositeOperation='source-over';drawWave();const pb=$('#bPlay');pb.style.setProperty('--kick',AU.on?AU.kick.toFixed(3):0);$('#ringP').style.strokeDashoffset=(226.2*(1-AU.prog)).toFixed(1)}
 const wvc=$('#wv'),wg=wvc.getContext('2d');let WW=0,WH=0;
 function sizeWv(){const r=wvc.getBoundingClientRect(),d=DPR();if(!r.width)return;WW=r.width;WH=r.height;wvc.width=Math.round(WW*d);wvc.height=Math.round(WH*d);wg.setTransform(d,0,0,d,0,0)}
 new ResizeObserver(sizeWv).observe(wvc);
-function syncEco(){document.documentElement.classList.toggle('eco',eco);const b=$('#ecoSw');if(b){b.classList.toggle('on',eco);$('#ecoTxt').textContent=eco?'Nyala: animasi 30 fps, tanpa efek kaca buram':'Mati: animasi paling halus, lebih boros'}}
+function syncEco(){document.documentElement.classList.toggle('eco',eco);const b=$('#ecoSw');if(b){b.classList.toggle('on',eco);$('#ecoTxt').textContent=eco?'Nyala: animasi ±45 fps, tanpa efek kaca buram':'Mati: animasi paling halus, lebih boros'}}
 setTimeout(()=>{syncEco();$('#ecoSw').onclick=()=>{eco=!eco;ls.set('eco',eco);syncEco();sizeViz();sizeWv();toast(eco?'Mode hemat baterai nyala':'Mode hemat baterai mati')}},0);
 const wvS=[];
 function drawWave(){if(!WW)return;const c=cur(),seed=c?hash(c.title+c.artist)%997:7,n=Math.max(20,Math.floor(WW/5)),bw=WW/n,p=seeking?+$('#seek').value/1000:AU.prog;wg.clearRect(0,0,WW,WH);

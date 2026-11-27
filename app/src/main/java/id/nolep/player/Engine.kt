@@ -323,7 +323,7 @@ class Engine(private val ctx: Context) {
         if (!vizAllowed()) return
         try {
             val v = Visualizer(s)
-            v.captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(512)
+            v.captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(1024)
             v.enabled = vizOn
             viz = v
         } catch (e: Exception) {
@@ -333,31 +333,54 @@ class Engine(private val ctx: Context) {
 
     private var fftBuf = ByteArray(0)
     private var waveBuf = ByteArray(0)
+    private var mag = FloatArray(0)
+    private var bandKey = 0L
+    private val bLo = FloatArray(128)
+    private val bHi = FloatArray(128)
 
-    /** 128 nilai spektrum (0-255, mirip AnalyserNode) lalu '|' lalu 128 sampel gelombang (0-255). */
+    /** 128 pita logaritmik 30Hz–16kHz (0-255, skala dB) lalu '|' lalu 128 sampel gelombang. Bass jauh lebih detail daripada pita linear. */
     fun vizData(): String {
         val v = viz ?: return ""
         if (mp?.isPlaying != true) return ""
         return try {
             val n = v.captureSize
-            if (fftBuf.size != n) { fftBuf = ByteArray(n); waveBuf = ByteArray(n) }
+            if (fftBuf.size != n) { fftBuf = ByteArray(n); waveBuf = ByteArray(n); mag = FloatArray(n / 2) }
             v.getFft(fftBuf)
             v.getWaveForm(waveBuf)
             val half = n / 2
-            val per = maxOf(1, half / 128)
-            val sb = StringBuilder(1200)
-            for (b in 0 until 128) {
-                var m = 0.0
-                for (k in 0 until per) {
-                    val j = b * per + k
-                    if (j == 0 || j >= half) continue
-                    val re = fftBuf[2 * j].toDouble()
-                    val im = fftBuf[2 * j + 1].toDouble()
-                    val mag = sqrt(re * re + im * im)
-                    if (mag > m) m = mag
+            for (k in 1 until half) {
+                val re = fftBuf[2 * k].toFloat()
+                val im = fftBuf[2 * k + 1].toFloat()
+                mag[k] = sqrt(re * re + im * im)
+            }
+            val sr = v.samplingRate / 1000f
+            val key = n.toLong() * 100000000L + sr.toLong()
+            if (key != bandKey) {
+                bandKey = key
+                val binHz = sr / n
+                for (b in 0 until 128) {
+                    bLo[b] = (30.0 * Math.pow(533.3, b / 128.0)).toFloat() / binHz
+                    bHi[b] = (30.0 * Math.pow(533.3, (b + 1) / 128.0)).toFloat() / binHz
                 }
-                val db = 20 * log10(m / 128.0 + 1e-6)
-                val x = ((db + 48) / 48 * 255).toInt().coerceIn(0, 255)
+            }
+            val sb = StringBuilder(1300)
+            for (b in 0 until 128) {
+                val k0 = bLo[b]
+                val k1 = bHi[b]
+                var m: Float
+                if (k1 - k0 < 1f) {
+                    val kc = (k0 + k1) / 2f
+                    val i = kc.toInt().coerceIn(1, half - 2)
+                    val f = (kc - i).coerceIn(0f, 1f)
+                    m = mag[i] * (1 - f) + mag[i + 1] * f
+                } else {
+                    m = 0f
+                    var i = Math.ceil(k0.toDouble()).toInt().coerceAtLeast(1)
+                    val e = Math.floor(k1.toDouble()).toInt().coerceAtMost(half - 1)
+                    while (i <= e) { if (mag[i] > m) m = mag[i]; i++ }
+                }
+                val db = 20 * log10(m / 128.0 + 1e-5)
+                val x = ((db + 56) / 56 * 255).toInt().coerceIn(0, 255)
                 if (b > 0) sb.append(',')
                 sb.append(x)
             }
