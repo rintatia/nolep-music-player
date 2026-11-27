@@ -16,7 +16,7 @@ import android.os.IBinder
 /** Layanan latar depan: menjaga aplikasi tetap hidup selama musik diputar, plus tombol kontrol di notifikasi & layar kunci. */
 class PlaybackService : Service() {
     companion object {
-        private fun act(ctx: Context, action: String, req: Int): PendingIntent {
+        fun act(ctx: Context, action: String, req: Int): PendingIntent {
             val i = Intent(ctx, PlaybackService::class.java).setAction(action)
             return PendingIntent.getForegroundService(ctx, req, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         }
@@ -54,7 +54,8 @@ class PlaybackService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val e = Engine.shared
+        val a = intent?.action
+        val e = Engine.shared ?: if (a == "prev" || a == "toggle" || a == "next") Engine.obtain(this) else null
         val n = e?.notification() ?: build(this, "NPlayer", "", false, null)
         if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         else startForeground(1, n)

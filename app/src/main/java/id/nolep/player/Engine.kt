@@ -11,6 +11,17 @@ import android.media.session.PlaybackState
 import android.net.wifi.WifiManager
 import android.os.Build
 import java.io.IOException
+import java.io.File
+import android.content.ContentUris
+import android.net.Uri
+import android.provider.MediaStore
+import android.util.Base64
+import java.security.KeyStore
+import javax.crypto.Cipher
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
+import org.json.JSONArray
+import org.json.JSONObject
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
@@ -33,9 +44,53 @@ class Engine(private val ctx: Context) {
     companion object {
         /** Satu mesin untuk seluruh aplikasi: tetap hidup walau layar aplikasi ditutup sistem saat HP terkunci */
         @Volatile var shared: Engine? = null
+
+        /** Ambil mesin yang sedang hidup, atau hidupkan lagi dari antrean terakhir (dipakai widget saat aplikasi tertutup) */
+        fun obtain(ctx: Context): Engine = shared ?: synchronized(this) { shared ?: Engine(ctx.applicationContext).also { it.restore(); shared = it } }
+        private const val API = "https://nplayer-music-api.rintatia.workers.dev"
     }
 
-    var source: (MediaPlayer, String, String) -> Unit = { _, _, _ -> throw IOException("Sumber belum siap") }
+    private val prefs = ctx.getSharedPreferences("nolep", Context.MODE_PRIVATE)
+
+    private fun token(): String = try {
+        val packed = Base64.decode(prefs.getString("api_token", "") ?: "", Base64.NO_WRAP)
+        val key = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }.getKey("nplayer_cloud_token", null) as? SecretKey
+        if (packed.size <= 12 || key == null) "" else {
+            val c = Cipher.getInstance("AES/GCM/NoPadding")
+            c.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, packed.copyOfRange(0, 12)))
+            String(c.doFinal(packed.copyOfRange(12, packed.size)), Charsets.UTF_8)
+        }
+    } catch (e: Exception) { "" }
+
+    private fun defaultSource(p: MediaPlayer, kind: String, ref: String) {
+        when (kind) {
+            "media" -> p.setDataSource(ctx, ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, ref.toLong()))
+            "file" -> p.setDataSource(File(File(ctx.filesDir, "music"), File(ref).name).absolutePath)
+            "r2" -> p.setDataSource(ctx, Uri.parse(API + "/api/stream/" + Uri.encode(ref, "/")), mapOf("Authorization" to "Bearer " + token()))
+            else -> throw IOException("Sumber tidak dikenal")
+        }
+    }
+
+    private fun save() {
+        try {
+            val a = JSONArray()
+            for (q in items) a.put(JSONObject().put("k", q.kind).put("r", q.ref).put("t", q.title).put("a", q.artist))
+            prefs.edit().putString("eng_q", a.toString()).putInt("eng_i", index).putString("eng_rep", repeat).apply()
+        } catch (e: Exception) { }
+    }
+
+    fun restore() {
+        try {
+            val a = JSONArray(prefs.getString("eng_q", "[]"))
+            val l = mutableListOf<Item>()
+            for (k in 0 until a.length()) { val o = a.getJSONObject(k); l.add(Item(o.optString("k"), o.optString("r"), o.optString("t"), o.optString("a"))) }
+            items = l
+            index = prefs.getInt("eng_i", 0).coerceIn(0, maxOf(0, l.size - 1))
+            repeat = prefs.getString("eng_rep", "off") ?: "off"
+        } catch (e: Exception) { }
+    }
+
+    var source: (MediaPlayer, String, String) -> Unit = { p, k, r -> defaultSource(p, k, r) }
     var onTrack: (Int) -> Unit = {}
     class Item(val kind: String, val ref: String, val title: String, val artist: String)
 
@@ -44,6 +99,7 @@ class Engine(private val ctx: Context) {
     var index = 0
         private set
     var repeat = "off"
+        set(v) { field = v; try { prefs.edit().putString("eng_rep", v).apply() } catch (e: Exception) { } }
     private var mp: MediaPlayer? = null
     @Volatile private var ready = false
     @Volatile private var wantPlay = false
@@ -132,6 +188,7 @@ class Engine(private val ctx: Context) {
     fun setQueue(list: List<Item>) {
         items = list
         if (index >= items.size) index = 0
+        save()
     }
 
     fun jump(i: Int, startMs: Int, autoplay: Boolean) = load(i, startMs, autoplay, 0)
@@ -175,6 +232,7 @@ class Engine(private val ctx: Context) {
             return
         }
         onTrack(index)
+        save()
         notifyState()
     }
 
@@ -325,6 +383,7 @@ class Engine(private val ctx: Context) {
         val q = items.getOrNull(index)
         val title = q?.title ?: "NPlayer"
         val artist = q?.artist ?: ""
+        NWidget.push(ctx, title, artist, playing)
         if (playing) {
             if (!serviceOn) {
                 try {

@@ -432,7 +432,7 @@ class Bridge(private val act: MainActivity) {
 
     /* ---------- Mesin putar (lihat Engine.kt) ---------- */
     val engine: Engine by lazy {
-        (Engine.shared ?: Engine(act.applicationContext).also { Engine.shared = it }).also {
+        Engine.obtain(act.applicationContext).also {
             it.source = { p, k, r -> setSource(p, k, r) }
             it.onTrack = { i -> emit("eng", "{\"index\":$i}") }
         }
@@ -466,6 +466,9 @@ class Bridge(private val act: MainActivity) {
 
     @JavascriptInterface
     fun eState(): String = engine.state()
+
+    @JavascriptInterface
+    fun widgetTheme(card: String, ink: String, acc: String, on: String) = NWidget.theme(act.applicationContext, card, ink, acc, on)
 
     @JavascriptInterface
     fun eViz(): String = engine.vizData()
