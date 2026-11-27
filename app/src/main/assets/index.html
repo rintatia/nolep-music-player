@@ -245,7 +245,7 @@ html.eco *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important
 <section class="view" id="v-tema">
  <div class="hello"><div><small>Tampilan kamu</small><h1 id="temaNow"></h1></div><button class="gb" data-go="putar" aria-label="Kembali ke pemutar"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button></div>
  <div class="ecoRow glass"><div><b>Mode hemat baterai</b><small id="ecoTxt"></small></div><button class="ecoSw" id="ecoSw" aria-label="Mode hemat baterai"></button></div>
- <div class="chips" id="subTema"><button data-s="bg" class="on">Latar</button><button data-s="anim">Animasi <em>13</em></button><button data-s="font">Font <em>225</em></button><button data-s="pal">Warna</button></div>
+ <div class="chips" id="subTema"><button data-s="bg" class="on">Latar</button><button data-s="anim">Animasi <em>20</em></button><button data-s="font">Font <em>225</em></button><button data-s="pal">Warna</button></div>
  <div id="themeGrid" class="tg"></div>
  <div id="fontList" class="fl" hidden></div>
 </section>
@@ -320,7 +320,7 @@ let themeI=ls.get('theme',0),fontO=ls.get('font','');if(!(themeI>=0&&themeI<T.le
 let eco=ls.get('eco',true);document.documentElement.classList.toggle('eco',eco);const DPR=()=>Math.min(eco?1.5:2,devicePixelRatio||1);
 const PALS=TH.map(t=>[t.d,...t.pal]);
 let look=ls.get('look',null);if(!look||typeof look!=='object'||!look.bg){const th=TH[themeI]||TH[0];look={bg:'b:'+th.bg,anim:th.hero,font:fontO||th.font,pal:themeI,dim:.15,v:th.v}}
-if(!['quantum','ribbon','sdna','mobius','tornado','hcrystal','sflower','forbit','sjelly','sboom','circspec','pwave','fwave'].includes(look.anim))look.anim='quantum';
+if(!['quantum','ribbon','sdna','mobius','tornado','hcrystal','sflower','forbit','sjelly','sboom','circspec','pwave','fwave','sgalaxy','rpetal','oscope','fsteps','oarcs','topo2','prism'].includes(look.anim))look.anim='quantum';
 let autoPal=ls.get('autoPal',{});if(!autoPal||typeof autoPal!=='object')autoPal={};
 let myBgs=[];const saveLook=()=>{ls.set('look',look);saveSettings()};
 const isUp=()=>String(look.bg).startsWith('u:'),bgName=k=>String(k).slice(2);
@@ -345,7 +345,7 @@ function drawBgImg(g,W,H,name,P){const o=bgImg(name);fill(g,W,H,P.bg);if(!o.ok)r
 function drawScene(g,W,H,tb,A,P0,s,lk){const P=prepPal(P0,s);s.b=s.b||{};s.h=s.h||{};
  if(String(lk.bg).startsWith('u:'))drawBgImg(g,W,H,bgName(lk.bg),P);else(BG[bgName(lk.bg)]||BG.sky)(g,W,H,tb,P,s.b,7);
  g.globalAlpha=1;g.globalCompositeOperation='source-over';if(lk.dim>0){g.fillStyle=rgba(P.dark?'#000000':P.bg,cl(+lk.dim,0,.8));g.fillRect(0,0,W,H)}
- P.N=animCols(P,lk);g.save();(HX[lk.anim]||HX.quantum)(g,W,H,A,P,s.h,lk.v|0,A.ht||0);g.restore();g.globalAlpha=1;g.lineCap='butt';g.globalCompositeOperation='source-over'}
+ P.N=animCols(P);g.save();(HX[lk.anim]||HX.quantum)(g,W,H,A,P,s.h,lk.v|0,A.ht||0);g.restore();g.globalAlpha=1;g.lineCap='butt';g.globalCompositeOperation='source-over'}
 let temaFilter='bg';
 const fontIO='IntersectionObserver' in window?new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){loadFont(e.target.dataset.lf);fontIO.unobserve(e.target)}}),{rootMargin:'200px'}):null;
 const lazyFonts=root=>root.querySelectorAll('[data-lf]').forEach(el=>fontIO?fontIO.observe(el):loadFont(el.dataset.lf));
@@ -357,8 +357,8 @@ function renderThemes(){const G=$('#themeGrid');$('#fontList').hidden=temaFilter
    <small class="tnote">Foto latar diam (tidak ikut beat). Yang bergerak mengikuti lagu hanya animasinya.</small></div>`;
   h+=`<div class="tsec"><b>Milikmu</b> <em>${myBgs.length}</em></div>`+(myBgs.length?myBgs.map(n=>`<div class="th sm${look.bg==='u:'+n?' on':''}" data-bg="u:${esc(n)}" role="button"><img alt="" src="/bg/${encodeURIComponent(n)}" loading="lazy"><button class="del" data-del="${esc(n)}" aria-label="Hapus latar">×</button></div>`).join(''):`<div class="tsec"><small class="tnote">${NATIVE?'Belum ada. Ketuk "Unggah latar" lalu pilih banyak foto sekaligus dari galeri.':'Unggah latar tersedia di aplikasi APK.'}</small></div>`);
   h+=`<div class="tsec"><b>Bawaan</b> <em>${Object.keys(BG).length} · bergerak pelan</em></div>`+Object.keys(BG).map(n=>tile('b|'+n+'|'+pk,look.bg==='b:'+n,BN[n],'','data-bg="b:'+n+'"')).join('')}
- else if(temaFilter==='anim'){h+=`<div class="tsec"><div class="row2"><button class="hbtn${look.nc!=='tema'?' act':''}" data-nc="neon">Warna neon asli</button><button class="hbtn${look.nc==='tema'?' act':''}" data-nc="tema">Ikuti warna tema</button></div><small class="tnote">Semua animasi berlatar transparan dan mengikuti kick, snare, hi-hat, serta nada rendah sampai tinggi.</small></div>`+
-  ANIMS.map(a=>tile('a|'+a+'|'+(look.nc==='tema'?pk:'neon'),look.anim===a,HN[a],'','data-an="'+a+'"')).join('')}
+ else if(temaFilter==='anim'){h+=`<div class="tsec"><small class="tnote">Warna semua animasi mengikuti tema (atur di tab Warna). Latarnya transparan, dan semuanya mengikuti kick, snare, hi-hat, serta nada rendah sampai tinggi.</small></div>`+
+  ANIMS.map(a=>tile('a|'+a+'|'+pk,look.anim===a,HN[a],'','data-an="'+a+'"')).join('')}
  else if(temaFilter==='pal'){h+=`<div class="tsec"><button class="hbtn${look.pal==='auto'?' act':''}" id="palAuto" ${isUp()?'':'disabled'}>✨ Otomatis dari foto latar</button>${isUp()?'':'<small class="tnote">Pilih foto latar milikmu dulu untuk memakai warna otomatis.</small>'}</div>`+
   PALS.map((p,i)=>`<button class="sw${String(look.pal)===String(i)?' on':''}" data-pal="${i}" style="background:${p[1]};color:${p[3]}"><i style="background:${p[4]}"></i>Aa</button>`).join('')}
  else if(temaFilter==='preset'){h+=`<div class="tsec"><small class="tnote">Kombinasi siap pakai. Setelah dipilih, kamu tetap bebas mengganti latar, animasi, font, atau warnanya.</small></div>`+TH.map((t,i)=>tile('p|'+i,false,t.n,HN[t.hero]+' · '+t.font,'data-pre="'+i+'"')).join('')}
@@ -375,8 +375,8 @@ function makeThumb(key){const[kind,a,vv]=key.split('|'),c=document.createElement
  const A={f:k=>fd[Math.max(0,Math.min(127,Math.floor(k*.62)))],wave:wd,bass:.6,mid:.5,high:.45,lvl:.55,kick:0,beat:false,on:true,dt:1/30};
  let lk,P;if(kind==='p'){const th=TH[+a];lk={bg:'b:'+th.bg,anim:th.hero,v:th.v,dim:0};const p=PALS[+a];P=palOf(null,['',...p,th.font])}else{P=palOf(null);lk=kind==='b'?{bg:'b:'+a,anim:'',dim:0}:{bg:'',anim:a,v:0,dim:0}}
  const s={};if(kind!=='b')for(let f=0;f<34;f++){A.beat=f%11===0;A.kick=A.beat?1:A.kick*.82;for(let k=0;k<128;k++)fd[k]=Math.max(0,Math.min(1,(.55+.3*Math.sin(k*.35+f*.4))*(1-k/95)+A.kick*.25*(k<12)));stepMotion(A,1/30);
-  if(f<33&&kind==='a'){const Q=Object.assign({},prepPal(P,s),{dark:true});Q.N=animCols(Q,{nc:vv==='neon'?'neon':'tema'});g.save();HX[lk.anim](g,W,H,A,Q,s.h||(s.h={}),0,A.ht);g.restore()}}
- g.clearRect(0,0,W,H);if(kind==='a'){const Q=Object.assign({},prepPal(P,s),{dark:true});Q.N=animCols(Q,{nc:vv==='neon'?'neon':'tema'});vg(g,W,H,'#141628','#07080f');g.save();HX[a](g,W,H,A,Q,s.h,0,A.ht);g.restore()}else if(kind==='b'){const Q=prepPal(P,s);BG[a](g,W,H,8,Q,{},7)}else drawScene(g,W,H,8,A,P,s,lk);
+  if(f<33&&kind==='a'){const Q=prepPal(P,s);Q.N=animCols(Q);g.save();HX[lk.anim](g,W,H,A,Q,s.h||(s.h={}),0,A.ht);g.restore()}}
+ g.clearRect(0,0,W,H);if(kind==='a'){const Q=prepPal(P,s);Q.N=animCols(Q);vg(g,W,H,Q.b2,Q.bg);g.save();HX[a](g,W,H,A,Q,s.h,0,A.ht);g.restore()}else if(kind==='b'){const Q=prepPal(P,s);BG[a](g,W,H,8,Q,{},7)}else drawScene(g,W,H,8,A,P,s,lk);
  return c.toDataURL('image/jpeg',.8)}
 function setLook(o,msg){Object.assign(look,o);saveLook();resetViz();applyTheme();renderThemes();if(msg)toast(msg)}
 $('#themeGrid').onclick=e=>{const d=e.target.closest('[data-del]');if(d){const n=d.dataset.del;openSheet(`<p>Hapus latar ini?</p><div class="row2"><button class="hbtn g" data-x="no">Batal</button><button class="hbtn" data-x="yes">Hapus</button></div>`,ev=>{const x=ev.target.closest('[data-x]');if(!x)return;closeSheet();if(x.dataset.x!=='yes')return;
@@ -766,8 +766,10 @@ function rot3(x,y,z,ay,ax){const ca=Math.cos(ay),sa=Math.sin(ay),X=x*ca+z*sa;let
 const prj=(cx,cy,R,p)=>{const k=3.2/(3.2+p[2]);return[cx+p[0]*R*k,cy+p[1]*R*k,k,p[2]]};
 function wvs(s,A,n,k){s.wv=s.wv||new Float32Array(n);const w=s.wv;for(let i=0;i<n;i++){const tg=A.on?(A.wave[(i*256/n)|0]-128)/128:0;w[i]+=(tg-w[i])*(k||.35)}return w}
 const ADD=(g,P)=>{g.globalCompositeOperation=P.dark?'lighter':'source-over'};
-function animCols(P,lk){const nn=!lk||lk.nc!=='tema';let c=nn?['#22e6ff','#8b5cff','#ff3df2','#3d7bff','#e8f3ff']:[P.acc,P.acc2,mixHex(P.acc,P.acc2,.5),mixHex(P.acc,'#3d7bff',.35),mixHex(P.acc,'#ffffff',.7)];
- if(!P.dark)c=c.map((x,i)=>i===4?mixHex(P.acc,'#000000',.2):mixHex(x,'#000000',.22));return{c1:c[0],c2:c[1],c3:c[2],c4:c[3],w:c[4],nc:nn?'neon':'tema'}}
+function animCols(P){const k=P.acc+P.acc2+P.dark;if(P._nk===k)return P._N;let c=[P.acc,P.acc2,mixHex(P.acc,P.acc2,.5),mixHex(P.acc,'#ffffff',.35),mixHex(P.acc,'#ffffff',.75)];
+ if(!P.dark)c=c.map((x,i)=>i===4?mixHex(P.acc,'#000000',.2):mixHex(x,'#000000',.22));const N={c1:c[0],c2:c[1],c3:c[2],c4:c[3],w:c[4],nc:'tema',lut:[]};
+ const st=[N.c4,N.c1,N.c3,N.c2,N.c1];for(let q=0;q<32;q++){const u=q/31*(st.length-1),a=Math.floor(Math.min(u,st.length-2));N.lut.push(mixHex(st[a],st[a+1],u-a))}P._nk=k;P._N=N;return N}
+const tl=(N,u)=>N.lut[Math.max(0,Math.min(31,(u*31.99)|0))];
 Object.assign(HN,{quantum:'Quantum Soundwave',ribbon:'Liquid Audio Ribbon',sdna:'Sonic DNA',mobius:'Infinite Frequency Loop',tornado:'Audio Tornado',hcrystal:'Harmonic Crystal',sflower:'Sonic Flower',forbit:'Frequency Orbit',sjelly:'Soundwave Jellyfish',sboom:'Sonic Explosion'});
 const HX={
 quantum(g,W,H,A,P,s){const N=P.N,cx=W/2,cy=H*.47,R=Math.min(W,H)*.44,RN=22,AN=44;s.rp=s.rp||[];if(A.beat&&A.on)s.rp.push(0);s.rp=s.rp.map(r=>r+A.dt*1.5).filter(r=>r<1.5);
@@ -785,7 +787,7 @@ ribbon(g,W,H,A,P,s){const N=P.N,cx=W/2,cy=H*.46,R=Math.min(W,H)*.42,n=96,w=wvs(s
   const nx=ty*wz-tz*wy,ny=tz*0-tx*wz,nz=tx*wy-ty*0,nl=Math.hypot(nx,ny,nz)||1,sh=Math.abs((nx*.3-ny*.7+nz*.65)/nl);const ry=Math.sin(t*.3)*.3,rx=.25;
   const v=[[p0[0],p0[1]-wy,p0[2]-wz],[p1[0],p1[1]-wy,p1[2]-wz],[p1[0],p1[1]+wy,p1[2]+wz],[p0[0],p0[1]+wy,p0[2]+wz]].map(p=>prj(cx,cy,R,rot3(p[0],p[1],p[2],ry,rx)));
   Q.push({v,z:(v[0][3]+v[2][3])/2,sh,u:u0})}
- Q.sort((a,b)=>b.z-a.z);for(const q of Q){const hue=215+60*Math.sin(q.u*TAU*2+t)+q.sh*40,L=12+Math.pow(q.sh,3)*78+A.k*8;g.fillStyle=N.nc==='tema'?mixHex(mixHex(N.c4,N.c2,q.u),'#ffffff',Math.pow(q.sh,3)*.8):`hsl(${hue} 85% ${Math.min(95,L)}%)`;g.beginPath();q.v.forEach((p,k)=>k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();g.fill();g.strokeStyle=g.fillStyle;g.lineWidth=1;g.stroke()}
+ Q.sort((a,b)=>b.z-a.z);for(const q of Q){const hue=215+60*Math.sin(q.u*TAU*2+t)+q.sh*40,L=12+Math.pow(q.sh,3)*78+A.k*8;g.fillStyle=mixHex(mixHex(tl(N,fr(q.u*2+t*.05)),'#000000',(1-q.sh)*.55),'#ffffff',Math.pow(q.sh,4)*.8);g.beginPath();q.v.forEach((p,k)=>k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath();g.fill();g.strokeStyle=g.fillStyle;g.lineWidth=1;g.stroke()}
  ADD(g,P);for(const q of Q)if(q.sh>.82){glow(g,N.w,(q.v[0][0]+q.v[2][0])/2,(q.v[0][1]+q.v[2][1])/2,R*.07*(1+A.hitH),.25+A.hitH*.4)}g.globalCompositeOperation='source-over'},
 sdna(g,W,H,A,P,s){const N=P.N,cx=W/2,cy=H*.46,R=Math.min(W,H)*.42,n=64,w=wvs(s,A,n);s.r=(s.r||0)+A.dt*(.5+A.e*1.4+A.k*.8);ADD(g,P);const P1=[],P2=[];
  for(let i=0;i<n;i++){const u=i/(n-1),y=(u-.5)*2.1,b=band(A,u*.95),r=.38*(1+b*.55+A.k*.18),a=i*.3+s.r,dx=w[i]*.08;const p1=prj(cx,cy,R,rot3(Math.cos(a)*r+dx,y,Math.sin(a)*r,0,.18)),p2=prj(cx,cy,R,rot3(-Math.cos(a)*r-dx,y,-Math.sin(a)*r,0,.18));P1.push([p1,b]);P2.push([p2,b])}
@@ -851,18 +853,43 @@ const ANIMS=['quantum','ribbon','sdna','mobius','tornado','hcrystal','sflower','
 Object.assign(HN,{circspec:'Circular Spectrum',pwave:'Particle Wave',fwave:'Fluid Wave'});
 Object.assign(HX,{
 circspec(g,W,H,A,P,s){s.ph=(s.ph||0)+A.dt*.72;const cx=W/2,cy=H*.46,base=Math.min(W,H)*.235*(1+A.k*.05),n=112,Lt=P.dark?66:46;g.lineCap='round';g.lineWidth=2.2;
- for(let i=0;i<n;i++){const a=i/n*TAU-Math.PI/2,e=Math.min(1,band(A,i/n*.98)*1.1),outer=base+5+e*base*.78,hue=(i/n*300+s.ph*18)%360;g.beginPath();g.moveTo(cx+Math.cos(a)*base,cy+Math.sin(a)*base);g.lineTo(cx+Math.cos(a)*outer,cy+Math.sin(a)*outer);g.strokeStyle=`hsla(${hue},92%,${Lt}%,${.48+e*.5})`;g.stroke()}
- g.beginPath();g.arc(cx,cy,base-8,0,TAU);g.strokeStyle=P.dark?'rgba(255,255,255,.13)':'rgba(0,0,0,.13)';g.lineWidth=1;g.stroke()},
+ for(let i=0;i<n;i++){const a=i/n*TAU-Math.PI/2,e=Math.min(1,band(A,i/n*.98)*1.1),outer=base+5+e*base*.78,hue=(i/n*300+s.ph*18)%360;g.beginPath();g.moveTo(cx+Math.cos(a)*base,cy+Math.sin(a)*base);g.lineTo(cx+Math.cos(a)*outer,cy+Math.sin(a)*outer);g.strokeStyle=rgba(tl(P.N,fr(hue/360)),.48+e*.5);g.stroke()}
+ g.beginPath();g.arc(cx,cy,base-8,0,TAU);g.strokeStyle=rgba(P.ink,.13);g.lineWidth=1;g.stroke()},
 pwave(g,W,H,A,P,s){s.ph=(s.ph||0)+A.dt*.72;const mid=H*.46,n=150,span=W*.86,left=(W-span)/2,Lt=P.dark?65:45;
  for(let i=0;i<n;i++){const x=left+i/(n-1)*span,e=Math.min(1,band(A,i/n*.72/.8)*1.1),wave=A.on?(A.wave[Math.floor(i/n*256)]-128)/128:0,y=mid+wave*H*.22+Math.sin(i*.13+s.ph)*3,spread=3+e*H*.23,hue=(i/n*280+s.ph*20)%360;
-  for(let j=-2;j<=2;j++){const yy=y+j*spread*.28,al=.2+(1-Math.abs(j)/3)*(.35+e*.55);g.beginPath();g.arc(x,yy,.8+e*1.5,0,TAU);g.fillStyle=`hsla(${hue},95%,${Lt}%,${al})`;g.fill()}
-  if(i%3===0&&e>.12){g.beginPath();g.moveTo(x,y);g.lineTo(x,y-spread);g.strokeStyle=`hsla(${hue},95%,${Lt}%,${e*.45})`;g.lineWidth=1;g.stroke()}}},
+  for(let j=-2;j<=2;j++){const yy=y+j*spread*.28,al=.2+(1-Math.abs(j)/3)*(.35+e*.55);g.beginPath();g.arc(x,yy,.8+e*1.5,0,TAU);g.fillStyle=rgba(tl(P.N,fr(hue/360)),al);g.fill()}
+  if(i%3===0&&e>.12){g.beginPath();g.moveTo(x,y);g.lineTo(x,y-spread);g.strokeStyle=rgba(tl(P.N,fr(hue/360)),e*.45);g.lineWidth=1;g.stroke()}}},
 fwave(g,W,H,A,P,s){s.ph=(s.ph||0)+A.dt*.72;const mid=H*.46,pts=180,sc=Math.min(W,H)/360;g.lineCap='round';
  for(let l=0;l<5;l++){g.beginPath();for(let i=0;i<pts;i++){const x=i/(pts-1)*W,e=Math.min(1,band(A,i/pts*.95)*1.1),smp=A.on?(A.wave[Math.floor(i/pts*256)]-128)/128:0,env=Math.sin(i/pts*Math.PI),
   y=mid+Math.sin(i*.045+s.ph*(1+l*.08)+l*.55)*(8+e*30)*sc*env+smp*(8+l*2)*sc+(l-2)*3*sc;i?g.lineTo(x,y):g.moveTo(x,y)}
-  const hue=(305+l*23+s.ph*12)%360;g.strokeStyle=`hsla(${hue},90%,${(P.dark?62:42)+l*2}%,${.72-l*.09})`;g.lineWidth=l===2?2.2:1.35;g.stroke()}}
+  g.strokeStyle=rgba(tl(P.N,fr(l/5+s.ph*.02)),.72-l*.09);g.lineWidth=l===2?2.2:1.35;g.stroke()}}
 });
 ANIMS.push('circspec','pwave','fwave');
+/* ===== 7 visualizer dari "music-visualizer-7" (bentuk asli, warna mengikuti tema, data dari pembaca beat NPlayer) ===== */
+const smp=(A,u)=>A.on?(A.wave[Math.max(0,Math.min(255,(u*255)|0))]-128)/128:0,en=(A,u)=>Math.min(1,band(A,u)*1.15);
+Object.assign(HN,{sgalaxy:'Spiral Galaxy',rpetal:'Radial Petal',oscope:'Oscilloscope',fsteps:'Frequency Steps',oarcs:'Orbiting Arcs',topo2:'Topographic',prism:'Prism Ribbon'});
+Object.assign(HX,{
+sgalaxy(g,W,H,A,P,s){const N=P.N;s.ph=(s.ph||0)+A.dt*.72;const cx=W/2,cy=H*.46,maxR=Math.min(W,H)*.39*(1+A.k*.05);
+ for(let a=0;a<2;a++)for(let i=0;i<420;i++){const u=i/420,r=5+u*maxR,ang=u*Math.PI*5+a*Math.PI+s.ph*.45,e=en(A,u*.95),wb=smp(A,u)*4,x=cx+Math.cos(ang)*(r+wb),y=cy+Math.sin(ang)*(r+wb)*.72,z=.65+e*1.5;
+  g.fillStyle=rgba(tl(N,fr(u*.85+a*.15+s.ph*.02)),.32+e*.65);g.fillRect(x-z,y-z,z*2,z*2)}
+ glow(g,N.w,cx,cy,maxR*.22*(1+A.k*.4),.25+A.k*.3)},
+rpetal(g,W,H,A,P,s){const N=P.N;s.ph=(s.ph||0)+A.dt*.72;const cx=W/2,cy=H*.46,base=Math.min(W,H)*.19,steps=200;g.lineWidth=1.15;
+ for(let p=0;p<12;p++){const a0=p*TAU/12;g.beginPath();for(let j=0;j<=steps;j++){const t=j/steps*TAU,e=en(A,j/steps*.9),lobe=Math.pow(Math.max(0,Math.sin(t)),1.5),r=base+lobe*(base*.65+e*base*.9)+Math.sin(t*2+s.ph+p)*2,a=a0+t*.18;j?g.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r):g.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r)}
+  g.closePath();g.strokeStyle=rgba(tl(N,fr(p/12+s.ph*.03)),.72);g.stroke()}},
+oscope(g,W,H,A,P,s){const N=P.N,mid=H*.46,n=300;for(let l=0;l<2;l++){g.beginPath();for(let i=0;i<n;i++){const u=i/(n-1),y=mid+smp(A,u)*H*(.19+en(A,u*.8)*.17)*(l?-.78:1);i?g.lineTo(u*W,y):g.moveTo(u*W,y)}g.strokeStyle=rgba(l?N.c2:N.c1,l?.9:.92);g.lineWidth=l?1.5:2.1;g.stroke()}
+ g.beginPath();g.moveTo(0,mid);g.lineTo(W,mid);g.strokeStyle=rgba(P.ink,.13);g.lineWidth=1;g.stroke()},
+fsteps(g,W,H,A,P,s){const N=P.N;s.ph=(s.ph||0)+A.dt*.72;const count=64,gap=2,totalW=W*.86,bw=(totalW-gap*(count-1))/count,left=(W-totalW)/2,bottom=H*.7,maxH=H*.5,seg=14,sh=maxH/seg;
+ for(let i=0;i<count;i++){const e=en(A,i/count*.95),act=Math.max(1,Math.round((.035+e)*maxH/sh)),c=tl(N,fr(i/count+s.ph*.02));for(let k=0;k<act;k++){g.fillStyle=rgba(mixHex(c,P.dark?'#ffffff':'#000000',k/seg*.25),.45+k/seg*.5);g.fillRect(left+i*(bw+gap),bottom-(k+1)*sh,bw,Math.max(1,sh-2))}}},
+oarcs(g,W,H,A,P,s){const N=P.N;s.ph=(s.ph||0)+A.dt*.72;const cx=W/2,cy=H*.46,m=Math.min(W,H),base=m*.12;g.lineCap='round';
+ for(let r=0;r<7;r++){const rad=base+r*m*.038*(1+A.k*.04),sg=3+r%3,e=en(A,.08+r/7*.8);for(let k=0;k<sg;k++){const st=k*TAU/sg+s.ph*(r%2?-.35:.35),len=Math.PI*(.22+.08*e+A.hitM*.04);g.beginPath();g.arc(cx,cy,rad,st,st+len);g.strokeStyle=rgba(tl(N,fr(r/7+k*.06+s.ph*.02)),.48+e*.45);g.lineWidth=2.2;g.stroke()}
+  const a=s.ph*(.5+r*.06)+r*1.7;g.beginPath();g.arc(cx+Math.cos(a)*rad,cy+Math.sin(a)*rad,1.2+e*2+A.hitH*1.5,0,TAU);g.fillStyle=rgba(N.w,.9);g.fill()}},
+topo2(g,W,H,A,P,s){const N=P.N;s.ph=(s.ph||0)+A.dt*.72;const rows=27,cols=120;g.lineWidth=1.05;for(let row=0;row<rows;row++){g.beginPath();for(let i=0;i<cols;i++){const u=i/(cols-1),e=en(A,u*.95),env=Math.sin(u*Math.PI),
+  rg=Math.sin(u*15+s.ph+row*.18)*(.012+e*.085)+Math.sin(u*31-s.ph*.7+row*.1)*(.006+e*.025)+smp(A,u)*.025,y=H*.2+row*H*.021+rg*H*env;i?g.lineTo(u*W,y):g.moveTo(u*W,y)}
+  g.strokeStyle=rgba(tl(N,row/rows),.24+row/rows*.38);g.stroke()}},
+prism(g,W,H,A,P,s){const N=P.N;s.ph=(s.ph||0)+A.dt*.72;const mid=H*.46;g.lineJoin='miter';for(let l=0;l<4;l++){g.beginPath();for(let i=0;i<96;i++){const u=i/95,x=W*.07+u*W*.86,e=en(A,u*.9),sm2=smp(A,u),env=Math.sin(u*Math.PI),car=Math.sin(u*18+s.ph+l*.6),st=Math.floor(u*18)%2===0?1:-1,
+  amp=(.035+e*.25+Math.abs(sm2)*.04)*H*env,y=mid+car*amp*st+(l-1.5)*amp*.16;i?g.lineTo(x,y):g.moveTo(x,y)}g.strokeStyle=rgba(tl(N,l/4),.82-l*.12);g.lineWidth=l===1?2.2:1.25;g.stroke()}g.lineJoin='round'}
+});
+ANIMS.push('sgalaxy','rpetal','oscope','fsteps','oarcs','topo2','prism');
 function orbLetter(g,x,y,r,P){g.fillStyle=lin(g,x-r,y-r,x+r,y+r,[[0,`hsl(${P.h} 70% 60%)`],[1,`hsl(${(P.h+60)%360} 65% 38%)`]]);circ(g,x,y,r);g.fill();g.fillStyle='rgba(255,255,255,.92)';g.font=`800 ${Math.round(r*.8)}px ${P.font}`;g.textAlign='center';g.textBaseline='middle';g.fillText(P.ch,x,y+r*.05)}
 function prepPal(P,s){if(s.P0!==P){s.P0=P;s.P=Object.assign({},P,{body:mixHex(P.acc,'#ffffff',P.dark?.12:.3),b2:mixHex(P.bg,P.acc,P.dark?.22:.28),b3:mixHex(P.bg,P.acc2,.22)})}return s.P}
 function drawTheme(g,W,H,i,tb,A,P0,s){const th=TH[i]||TH[0],P=prepPal(P0,s);s.b=s.b||{};s.h=s.h||{};
